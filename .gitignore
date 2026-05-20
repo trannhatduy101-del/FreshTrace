@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Hardhat
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# Environment — NEVER commit real keys
+.env
+.env.local
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Simulation output
+simulation-results.json
+deployments.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.sw?
+
+# Logs
+*.log
+npm-debug.log*
+
+# Archives (not needed in repo)
+*.tar.gz
+*.zip
+
+# Job/temp files
+.claude/

@@ -1,0 +1,27 @@
+/* Google Fonts import MUST come before @tailwind directives per CSS spec */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth root defaults; light theme palette */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+/* Subtle focus ring for accessibility across all inputs */
+*:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}

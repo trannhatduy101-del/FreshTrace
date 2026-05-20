@@ -1,0 +1,18 @@
+{
+  "name": "freshtrace",
+  "version": "1.0.0",
+  "description": "FreshTrace — immutable audit log dApp for Vietnam's OCOP-certified agricultural supply chain",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.ts --network hardhat",
+    "deploy:amoy": "hardhat run scripts/deploy.ts --network amoy",
+    "node": "hardhat node"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.4.0"
+  }
+}

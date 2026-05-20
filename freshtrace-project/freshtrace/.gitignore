@@ -1,0 +1,12 @@
+node_modules/
+artifacts/
+cache/
+typechain-types/
+.env
+__pycache__/
+.venv/
+*.pyc
+coverage/
+coverage.json
+simulation-results.json
+deployments.json
