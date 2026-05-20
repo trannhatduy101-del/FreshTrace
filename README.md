@@ -136,14 +136,20 @@ npm install
 ### 2. Configure environment files
 
 ```bash
-# Smart contract — defaults work for local dev
+# Smart contract
 cd freshtrace-project/freshtrace
 cp .env.example .env
+# Open .env and set WALLET_ADDRESS to your MetaMask address (optional but recommended)
 
-# Frontend — defaults work for local dev
+# Frontend — defaults work for local dev (uses Hardhat deterministic address)
 cd ../../frontend
 cp .env.example .env
 ```
+
+> **First-time users without a MetaMask wallet?** You can skip `WALLET_ADDRESS`
+> and instead import the Hardhat #0 private key (in `.env.example`) into
+> MetaMask. That account already has 10000 test ETH and `setup.ts` will grant
+> it all 4 roles by default.
 
 ### 3. Start local blockchain + deploy (Windows PowerShell)
 
