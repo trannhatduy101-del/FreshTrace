@@ -6,6 +6,7 @@ import {
   AuditFlag,
   ActionType,
   BatchImageUrls,
+  QuantityUnit,
 } from "../types";
 import { ipfsUrl } from "../config/pinata";
 
@@ -52,6 +53,7 @@ export function useBatchHistory(
         origin: rawBatch.origin,
         harvestDate: rawBatch.harvestDate,
         quantity: rawBatch.quantity,
+        unit: Number(rawBatch.unit ?? 0) as QuantityUnit,
         producer: rawBatch.producer,
         ocop: rawBatch.ocop,
         exists: rawBatch.exists,

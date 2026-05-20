@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useWeb3ModalAccount } from "../hooks/useWalletHooks";
+import { useWalletAccount } from "../hooks/useWallet";
 import { useContract } from "../hooks/useContract";
 import { useRole } from "../hooks/useRole";
 import { useFlagBatch } from "../hooks/useFlagBatch";
@@ -8,7 +8,7 @@ import { useBatchHistory } from "../hooks/useBatchHistory";
 import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
 import { txLink } from "../config/chains";
-import { Batch } from "../types";
+import { Batch, QuantityUnit } from "../types";
 
 interface BatchRow {
   id: string;
@@ -22,7 +22,7 @@ const INPUT_CLASS =
 
 export default function AuditBatch() {
   const { contract, isConnected } = useContract();
-  const { address } = useWeb3ModalAccount();
+  const { address } = useWalletAccount();
   const role = useRole(contract, address);
 
   const [rows, setRows] = useState<BatchRow[]>([]);
@@ -52,6 +52,7 @@ export default function AuditBatch() {
                 origin: rawBatch.origin,
                 harvestDate: rawBatch.harvestDate,
                 quantity: rawBatch.quantity,
+                unit: Number(rawBatch.unit ?? 0) as QuantityUnit,
                 producer: rawBatch.producer,
                 ocop: rawBatch.ocop,
                 exists: rawBatch.exists,

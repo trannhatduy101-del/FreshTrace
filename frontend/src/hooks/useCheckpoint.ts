@@ -3,28 +3,19 @@ import { Contract } from "ethers";
 import { ActionType } from "../types";
 import { usePinata } from "./usePinata";
 import { TX_OVERRIDES } from "../config/chains";
+import { useTransaction } from "./useTransaction";
 
-interface CheckpointState {
-  loading: boolean;
-  success: boolean;
-  error: string | null;
-  txHash: string | null;
-  anomaly: { attempted: ActionType; last: ActionType } | null;
+interface AnomalyInfo {
+  attempted: ActionType;
+  last: ActionType;
 }
-
-const INITIAL: CheckpointState = {
-  loading: false,
-  success: false,
-  error: null,
-  txHash: null,
-  anomaly: null,
-};
 
 // Log a checkpoint with optional photo. Performs a UX-only pre-check to fail
 // fast on out-of-order actions; the contract remains the authoritative source.
 export function useCheckpoint(contract: Contract | null) {
   const { uploadFile } = usePinata();
-  const [state, setState] = useState<CheckpointState>(INITIAL);
+  const tx = useTransaction("Checkpoint failed");
+  const [anomaly, setAnomaly] = useState<AnomalyInfo | null>(null);
 
   const logCheckpoint = useCallback(
     async (
@@ -33,71 +24,52 @@ export function useCheckpoint(contract: Contract | null) {
       location: string,
       file?: File | null
     ) => {
-      if (!contract) {
-        setState({ ...INITIAL, error: "Wallet not connected" });
-        return;
-      }
+      if (!contract) return;
+      setAnomaly(null);
 
-      setState({ ...INITIAL, loading: true });
-
+      // 1. Client-side anomaly pre-check against the LAST main-flow checkpoint.
+      //    Saves gas on obviously bad submissions; mirrors contract logic.
       try {
-        // 1. Client-side anomaly pre-check — saves gas on obvious errors
         const [, rawCheckpoints] = await contract.getHistory(batchId);
         if (rawCheckpoints.length > 0) {
-          const lastAction = Number(
-            rawCheckpoints[rawCheckpoints.length - 1].action
-          ) as ActionType;
-          if (actionType <= lastAction) {
-            setState({
-              ...INITIAL,
-              error: `Anomaly: cannot log ${ActionType[actionType]} after ${ActionType[lastAction]}`,
-              anomaly: { attempted: actionType, last: lastAction },
-            });
-            return;
+          // Walk backwards skipping add-ons (addonLabel non-empty)
+          for (let i = rawCheckpoints.length - 1; i >= 0; i--) {
+            const cp = rawCheckpoints[i];
+            const isAddon = cp.addonLabel && cp.addonLabel.length > 0;
+            if (!isAddon) {
+              const lastAction = Number(cp.action) as ActionType;
+              if (actionType <= lastAction) {
+                setAnomaly({ attempted: actionType, last: lastAction });
+                await tx.submit(async () => {
+                  throw new Error(
+                    `Anomaly: cannot log ${ActionType[actionType]} after ${ActionType[lastAction]}`
+                  );
+                });
+                return;
+              }
+              break;
+            }
           }
         }
-
-        // 2. Upload evidence photo if provided
-        let cid = "";
-        if (file) {
-          cid = await uploadFile(file);
-        }
-
-        // 3. Submit logCheckpoint transaction
-        const tx = await contract.logCheckpoint(
-          batchId,
-          actionType,
-          location,
-          cid,
-          TX_OVERRIDES
-        );
-        const receipt = await tx.wait();
-
-        setState({
-          loading: false,
-          success: true,
-          error: null,
-          txHash: receipt.hash,
-          anomaly: null,
-        });
-      } catch (e) {
-        // Detect contract-side AnomalyDetected revert via error string match
-        const msg =
-          e instanceof Error
-            ? e.message
-            : "Checkpoint failed — see console for details";
-        const isAnomaly = msg.includes("AnomalyDetected");
-        setState({
-          ...INITIAL,
-          error: msg,
-          anomaly: isAnomaly ? { attempted: actionType, last: -1 as any } : null,
-        });
+      } catch {
+        // If pre-check fails, fall through to the actual transaction.
       }
+
+      // 2. Upload evidence photo if provided.
+      const cid = file ? await uploadFile(file) : "";
+
+      // 3. Submit checkpoint transaction via the generic submitter.
+      await tx.submit(() =>
+        contract.logCheckpoint(batchId, actionType, location, cid, TX_OVERRIDES)
+      );
     },
-    [contract, uploadFile]
+    [contract, uploadFile, tx]
   );
 
-  const reset = useCallback(() => setState(INITIAL), []);
+  const reset = useCallback(() => {
+    tx.reset();
+    setAnomaly(null);
+  }, [tx]);
 
-  return { logCheckpoint, reset, ...state };
+  return { logCheckpoint, reset, loading: tx.loading, success: tx.success, error: tx.error, txHash: tx.txHash, anomaly };
 }

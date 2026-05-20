@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  contract-tests:
+    name: Hardhat contract tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: freshtrace-project/freshtrace
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: freshtrace-project/freshtrace/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile contract
+        run: npx hardhat compile
+
+      - name: Run all tests (Hardhat)
+        run: npx hardhat test
+
+  frontend-checks:
+    name: Frontend type-check + tests + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+
+      - name: Unit tests (Vitest)
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          # Build needs a valid-looking env. Real values are set per-deployment
+          # in Vercel; CI just verifies the bundle compiles.
+          VITE_CHAIN_ID: "80002"
+          VITE_POLYGON_AMOY_RPC_URL: "https://polygon-amoy-bor-rpc.publicnode.com"
+          VITE_CONTRACT_ADDRESS: "0x0000000000000000000000000000000000000000"

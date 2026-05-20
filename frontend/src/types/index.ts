@@ -11,12 +11,25 @@ export enum ActionType {
   RECEIVED = 4,
 }
 
+// Unit in which Batch.quantity is measured.
+// Mirrors the contract enum: GRAMS=0, KILOGRAMS=1.
+export enum QuantityUnit {
+  GRAMS = 0,
+  KILOGRAMS = 1,
+}
+
+export const QUANTITY_UNIT_SYMBOL: Record<QuantityUnit, string> = {
+  [QuantityUnit.GRAMS]: "g",
+  [QuantityUnit.KILOGRAMS]: "kg",
+};
+
 // Core batch record stored on-chain. bigint used for uint256 fields.
 export interface Batch {
   productName: string;
   origin: string;
   harvestDate: bigint;
   quantity: bigint;
+  unit: QuantityUnit;
   producer: string;
   ocop: boolean;
   exists: boolean;

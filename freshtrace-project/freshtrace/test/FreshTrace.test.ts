@@ -22,13 +22,16 @@ describe("FreshTrace", function () {
   async function registerTestBatch(
     ipfsHash: string = "QmTestHash123"
   ): Promise<string> {
+    // Use a recent timestamp (now - 1 day) so the validation passes
+    const harvestDate = Math.floor(Date.now() / 1000) - 86400;
     const tx = await freshTrace
       .connect(producer)
       .registerBatch(
         "Mango",
         "Dong Thap",
-        1700000000,
+        harvestDate,
         500000,
+        0, // QuantityUnit.GRAMS
         true,
         ipfsHash
       );
@@ -104,7 +107,7 @@ describe("FreshTrace", function () {
       await expect(
         freshTrace
           .connect(producer)
-          .registerBatch("Mango", "Dong Thap", 1700000000, 500000, true, "QmHash")
+          .registerBatch("Mango", "Dong Thap", 1700000000, 500000, 0, true, "QmHash")
       )
         .to.emit(freshTrace, "BatchRegistered")
         .withArgs(
@@ -142,7 +145,7 @@ describe("FreshTrace", function () {
       await expect(
         freshTrace
           .connect(unauthorized)
-          .registerBatch("Mango", "Dong Thap", 1700000000, 500000, true, "")
+          .registerBatch("Mango", "Dong Thap", 1700000000, 500000, 0, true, "")
       ).to.be.reverted;
     });
   });
@@ -374,7 +377,7 @@ describe("FreshTrace", function () {
       // Need different params or timestamp to get unique batchId
       const tx2 = await freshTrace
         .connect(producer)
-        .registerBatch("Dragon Fruit", "Binh Thuan", 1700100000, 300000, true, "QmHash2");
+        .registerBatch("Dragon Fruit", "Binh Thuan", 1700100000, 300000, 0, true, "QmHash2");
       const receipt2 = await tx2.wait();
       const event2 = receipt2?.logs.find((log) => {
         try {
@@ -415,7 +418,7 @@ describe("FreshTrace", function () {
 
       await freshTrace
         .connect(producer)
-        .registerBatch("Lychee", "Bac Giang", 1700200000, 200000, false, "QmB");
+        .registerBatch("Lychee", "Bac Giang", 1700200000, 200000, 0, false, "QmB");
       expect(await freshTrace.getBatchCount()).to.equal(2);
     });
   });
@@ -536,7 +539,7 @@ describe("FreshTrace", function () {
     it("Should store ocop=false correctly", async function () {
       const tx = await freshTrace
         .connect(producer)
-        .registerBatch("Plain Rice", "An Giang", 1700300000, 1000000, false, "");
+        .registerBatch("Plain Rice", "An Giang", 1700300000, 1000000, 0, false, "");
       const receipt = await tx.wait();
       const event = receipt?.logs.find((log) => {
         try { return freshTrace.interface.parseLog(log as any)?.name === "BatchRegistered"; }
@@ -552,7 +555,7 @@ describe("FreshTrace", function () {
       const largeQty = 999_999_999_999n;
       const tx = await freshTrace
         .connect(producer)
-        .registerBatch("Bulk Corn", "Dak Lak", 1700400000, largeQty, false, "");
+        .registerBatch("Bulk Corn", "Dak Lak", 1700400000, largeQty, 1, false, "");
       const receipt = await tx.wait();
       const event = receipt?.logs.find((log) => {
         try { return freshTrace.interface.parseLog(log as any)?.name === "BatchRegistered"; }
@@ -772,6 +775,87 @@ describe("FreshTrace", function () {
       const fake = ethers.keccak256(ethers.toUtf8Bytes("ghost"));
       await expect(freshTrace.connect(auditor).resolveFlag(fake, 0))
         .to.be.revertedWithCustomError(freshTrace, "BatchNotFound");
+    });
+  });
+
+  // ── Input validation ─────────────────────────────────────────────
+
+  describe("Input validation", function () {
+    const validDate = () => Math.floor(Date.now() / 1000) - 86400;
+
+    it("registerBatch rejects empty productName", async function () {
+      await expect(
+        freshTrace.connect(producer).registerBatch("", "Origin", validDate(), 100, 0, true, "")
+      ).to.be.revertedWith("productName required");
+    });
+
+    it("registerBatch rejects productName > 100 chars", async function () {
+      const longName = "a".repeat(101);
+      await expect(
+        freshTrace.connect(producer).registerBatch(longName, "Origin", validDate(), 100, 0, true, "")
+      ).to.be.revertedWith("productName too long");
+    });
+
+    it("registerBatch rejects empty origin", async function () {
+      await expect(
+        freshTrace.connect(producer).registerBatch("Mango", "", validDate(), 100, 0, true, "")
+      ).to.be.revertedWith("origin required");
+    });
+
+    it("registerBatch rejects quantity == 0", async function () {
+      await expect(
+        freshTrace.connect(producer).registerBatch("Mango", "Origin", validDate(), 0, 0, true, "")
+      ).to.be.revertedWith("quantity must be > 0");
+    });
+
+    it("registerBatch rejects harvestDate too far in future", async function () {
+      const future = Math.floor(Date.now() / 1000) + 60 * 86400; // 60 days ahead
+      await expect(
+        freshTrace.connect(producer).registerBatch("Mango", "Origin", future, 100, 0, true, "")
+      ).to.be.revertedWith("harvestDate too far in future");
+    });
+
+    it("registerBatch accepts harvestDate up to 30 days in future", async function () {
+      const future = Math.floor(Date.now() / 1000) + 25 * 86400; // 25 days ahead, within limit
+      await expect(
+        freshTrace.connect(producer).registerBatch("Mango", "Origin", future, 100, 0, true, "")
+      ).to.not.be.reverted;
+    });
+
+    it("registerBatch stores QuantityUnit correctly", async function () {
+      // GRAMS = 0, KILOGRAMS = 1
+      const tx = await freshTrace.connect(producer).registerBatch("Rice", "An Giang", validDate(), 500, 1, false, "");
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find((log) => {
+        try { return freshTrace.interface.parseLog(log as any)?.name === "BatchRegistered"; }
+        catch { return false; }
+      });
+      const batchId = freshTrace.interface.parseLog(event as any)!.args.batchId;
+
+      const [batch] = await freshTrace.getHistory(batchId);
+      expect(batch.unit).to.equal(1); // KILOGRAMS
+    });
+
+    it("logCheckpoint rejects empty location", async function () {
+      const batchId = await registerTestBatch();
+      await expect(
+        freshTrace.connect(logistics).logCheckpoint(batchId, 1, "", "")
+      ).to.be.revertedWith("location required");
+    });
+
+    it("flagBatch rejects empty reason", async function () {
+      const batchId = await registerTestBatch();
+      await expect(
+        freshTrace.connect(auditor).flagBatch(batchId, "")
+      ).to.be.revertedWith("reason required");
+    });
+
+    it("logAddon rejects oversized addonLabel", async function () {
+      const batchId = await registerTestBatch();
+      const longLabel = "x".repeat(101);
+      await expect(
+        freshTrace.connect(logistics).logAddon(batchId, longLabel, "Loc", "")
+      ).to.be.revertedWith("addonLabel too long");
     });
   });
 });

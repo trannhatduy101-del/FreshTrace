@@ -1,33 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Contract } from "ethers";
 import { TX_OVERRIDES } from "../config/chains";
-
-interface ResolveState {
-  loading: boolean;
-  success: boolean;
-  error: string | null;
-}
-
-const INITIAL: ResolveState = { loading: false, success: false, error: null };
+import { useTransaction } from "./useTransaction";
 
 export function useResolveFlag(contract: Contract | null) {
-  const [state, setState] = useState<ResolveState>(INITIAL);
+  const tx = useTransaction("Resolve failed");
 
   const resolveFlag = useCallback(
     async (batchId: string, flagIndex: number) => {
-      if (!contract) { setState({ ...INITIAL, error: "Wallet not connected" }); return; }
-      setState({ ...INITIAL, loading: true });
-      try {
-        const tx = await contract.resolveFlag(batchId, flagIndex, TX_OVERRIDES);
-        await tx.wait();
-        setState({ loading: false, success: true, error: null });
-      } catch (e) {
-        setState({ ...INITIAL, error: e instanceof Error ? e.message : "Resolve failed" });
-      }
+      if (!contract) return;
+      await tx.submit(() => contract.resolveFlag(batchId, flagIndex, TX_OVERRIDES));
     },
-    [contract]
+    [contract, tx]
   );
 
-  const reset = useCallback(() => setState(INITIAL), []);
-  return { resolveFlag, reset, ...state };
+  return { resolveFlag, reset: tx.reset, loading: tx.loading, success: tx.success, error: tx.error, txHash: tx.txHash };
 }

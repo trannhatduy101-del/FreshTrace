@@ -65,6 +65,17 @@ contract FreshTrace is AccessControl {
         RECEIVED    // 4 — accepted at final retail location
     }
 
+    /**
+     * @notice The unit in which `Batch.quantity` is measured.
+     * @dev    Stored on-chain so consumers know whether a quantity of "5000"
+     *         means 5 kg (GRAMS) or 5 tonnes (KILOGRAMS). UI displays the
+     *         unit symbol alongside the number.
+     */
+    enum QuantityUnit {
+        GRAMS,      // 0 — small batches (e.g. premium fruit boxes)
+        KILOGRAMS   // 1 — bulk produce
+    }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Structs
@@ -77,15 +88,16 @@ contract FreshTrace is AccessControl {
      *         comparison, making the intent explicit.
      */
     struct Batch {
-        string  productName; // Human-readable name, e.g. "Da Lat Strawberry"
-        string  origin;      // Geographic origin, e.g. "Da Lat, Lam Dong"
-        uint256 harvestDate; // Unix timestamp (seconds) of the harvest date
-        uint256 quantity;    // Weight in grams
-        address producer;    // Wallet address of the registering producer
-        bool    ocop;        // True if the batch carries an OCOP quality certification
-        bool    exists;      // Sentinel: true once the batch has been registered
-        bool    flagged;     // True if an auditor has raised a concern on this batch
-        string  ipfsHash;    // Pinata/IPFS CID for the product photo or certificate
+        string       productName; // Human-readable name, e.g. "Da Lat Strawberry"
+        string       origin;      // Geographic origin, e.g. "Da Lat, Lam Dong"
+        uint256      harvestDate; // Unix timestamp (seconds) of the harvest date
+        uint256      quantity;    // Numeric weight, interpreted with `unit` below
+        QuantityUnit unit;        // GRAMS or KILOGRAMS — disambiguates `quantity`
+        address      producer;    // Wallet address of the registering producer
+        bool         ocop;        // True if the batch carries an OCOP quality certification
+        bool         exists;      // Sentinel: true once the batch has been registered
+        bool         flagged;     // True if an auditor has raised a concern on this batch
+        string       ipfsHash;    // Pinata/IPFS CID for the product photo or certificate
     }
 
     /**
@@ -139,6 +151,23 @@ contract FreshTrace is AccessControl {
 
     /// @dev Ordered list of all registered batchIds — used by getBatchIds() for enumeration.
     bytes32[] private batchIds;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Input-validation constants
+    // Length caps protect against unbounded-string gas attacks; date caps
+    // catch obvious user errors (timestamp far in past or future).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    uint256 private constant MAX_NAME_LEN     = 100;
+    uint256 private constant MAX_LOCATION_LEN = 200;
+    uint256 private constant MAX_REASON_LEN   = 500;
+    uint256 private constant MAX_LABEL_LEN    = 100;
+    uint256 private constant MAX_IPFS_LEN     = 100;
+
+    /// @dev Reject harvest dates older than 100 years before now or more than
+    ///      30 days in the future — protects against accidental date errors.
+    uint256 private constant MAX_HARVEST_LOOKBACK = 100 * 365 days;
+    uint256 private constant MAX_HARVEST_LOOKAHEAD = 30 days;
 
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -249,15 +278,32 @@ contract FreshTrace is AccessControl {
         string calldata origin,
         uint256 harvestDate,
         uint256 quantity,
+        QuantityUnit unit,
         bool ocop,
         string calldata ipfsHash
     ) external onlyRole(PRODUCER_ROLE) returns (bytes32) {
 
+        // ── Input validation ──
+        // Reject empty + oversized strings to keep storage bounded and prevent
+        // gas-griefing attacks via huge string parameters.
+        require(bytes(productName).length > 0,                      "productName required");
+        require(bytes(productName).length <= MAX_NAME_LEN,          "productName too long");
+        require(bytes(origin).length > 0,                           "origin required");
+        require(bytes(origin).length <= MAX_NAME_LEN,               "origin too long");
+        require(bytes(ipfsHash).length <= MAX_IPFS_LEN,             "ipfsHash too long");
+        require(quantity > 0,                                       "quantity must be > 0");
+
+        // Sanity-check harvestDate so producers can't accidentally enter year
+        // 1970 (timestamp 0) or a date decades in the future.
+        require(harvestDate + MAX_HARVEST_LOOKBACK >= block.timestamp, "harvestDate too old");
+        require(harvestDate <= block.timestamp + MAX_HARVEST_LOOKAHEAD, "harvestDate too far in future");
+
         // Derive a deterministic, collision-resistant batch ID from the inputs.
-        // block.timestamp is included so repeated registrations by the same
-        // producer for the same product on different occasions yield different IDs.
+        // Uses abi.encode (NOT encodePacked) on dynamic types so concatenated
+        // strings cannot collide: ("ab","cd") and ("a","bcd") would otherwise
+        // hash identically under encodePacked.
         bytes32 batchId = keccak256(
-            abi.encodePacked(productName, origin, harvestDate, msg.sender, block.timestamp)
+            abi.encode(productName, origin, harvestDate, msg.sender, block.timestamp)
         );
 
         // Guard against hash collisions (extremely rare but theoretically possible).
@@ -271,6 +317,7 @@ contract FreshTrace is AccessControl {
             origin:      origin,
             harvestDate: harvestDate,
             quantity:    quantity,
+            unit:        unit,
             producer:    msg.sender,
             ocop:        ocop,
             exists:      true,
@@ -325,6 +372,11 @@ contract FreshTrace is AccessControl {
             hasRole(LOGISTICS_ROLE, msg.sender) || hasRole(RETAILER_ROLE, msg.sender),
             "Caller lacks LOGISTICS_ROLE or RETAILER_ROLE"
         );
+
+        // ── Input validation ──
+        require(bytes(location).length > 0,                "location required");
+        require(bytes(location).length <= MAX_LOCATION_LEN, "location too long");
+        require(bytes(ipfsHash).length <= MAX_IPFS_LEN,     "ipfsHash too long");
 
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
 
@@ -400,7 +452,12 @@ contract FreshTrace is AccessControl {
             "No authorized role"
         );
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
-        require(bytes(addonLabel).length > 0, "addonLabel required");
+
+        // ── Input validation ──
+        require(bytes(addonLabel).length > 0,                "addonLabel required");
+        require(bytes(addonLabel).length <= MAX_LABEL_LEN,   "addonLabel too long");
+        require(bytes(location).length <= MAX_LOCATION_LEN,  "location too long");
+        require(bytes(ipfsHash).length <= MAX_IPFS_LEN,      "ipfsHash too long");
 
         checkpoints[batchId].push(Checkpoint({
             actor:      msg.sender,
@@ -434,6 +491,10 @@ contract FreshTrace is AccessControl {
         string calldata reason
     ) external onlyRole(AUDITOR_ROLE) {
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
+
+        // ── Input validation ──
+        require(bytes(reason).length > 0,              "reason required");
+        require(bytes(reason).length <= MAX_REASON_LEN, "reason too long");
 
         // Mark the batch so the flagged state is visible via getHistory().
         batches[batchId].flagged = true;

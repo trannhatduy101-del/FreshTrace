@@ -1,14 +1,16 @@
 import { ReactNode, useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import WalletConnect from "./WalletConnect";
+import LanguageToggle from "./LanguageToggle";
+import { useI18n } from "../i18n/I18nContext";
 
-// Nav links rendered in both desktop and mobile menus
+// Nav link i18n keys — labels resolved at render time via t().
 const NAV_LINKS = [
-  { to: "/", label: "Dashboard", end: true },
-  { to: "/register", label: "Register Batch" },
-  { to: "/checkpoint", label: "Log Checkpoint" },
-  { to: "/audit", label: "Audit" },
-  { to: "/trace", label: "Public Trace" },
+  { to: "/",           tKey: "nav.dashboard",  end: true },
+  { to: "/register",   tKey: "nav.register" },
+  { to: "/checkpoint", tKey: "nav.checkpoint" },
+  { to: "/audit",      tKey: "nav.audit" },
+  { to: "/trace",      tKey: "nav.trace" },
 ];
 
 interface LayoutProps {
@@ -18,6 +20,7 @@ interface LayoutProps {
 // Top-level shell: sticky nav, mobile hamburger, main slot, footer
 export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { t } = useI18n();
 
   // Shared className builder for active vs inactive nav links
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -61,14 +64,15 @@ export default function Layout({ children }: LayoutProps) {
                   end={link.end}
                   className={linkClass}
                 >
-                  {link.label}
+                  {t(link.tKey)}
                 </NavLink>
               ))}
             </nav>
 
-            {/* Wallet button (desktop) + hamburger (mobile) */}
+            {/* Wallet button + language toggle (desktop) + hamburger (mobile) */}
             <div className="flex items-center gap-2">
-              <div className="hidden md:block">
+              <div className="hidden md:flex items-center gap-2">
+                <LanguageToggle />
                 <WalletConnect />
               </div>
               <button
@@ -102,10 +106,11 @@ export default function Layout({ children }: LayoutProps) {
                     className={linkClass}
                     onClick={() => setMobileOpen(false)}
                   >
-                    {link.label}
+                    {t(link.tKey)}
                   </NavLink>
                 ))}
-                <div className="mt-2 px-3">
+                <div className="mt-2 px-3 flex items-center gap-2">
+                  <LanguageToggle />
                   <WalletConnect />
                 </div>
               </nav>

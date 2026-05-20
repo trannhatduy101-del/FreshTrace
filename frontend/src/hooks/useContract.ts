@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  useWeb3ModalAccount,
-  useWeb3ModalProvider,
-} from "./useWalletHooks";
+  useWalletAccount,
+  useWalletProvider,
+} from "./useWallet";
 import { BrowserProvider, Contract, JsonRpcProvider } from "ethers";
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from "../config/contract";
 import { POLYGON_AMOY_CHAIN_ID, POLYGON_AMOY_RPC_URL } from "../config/chains";
@@ -10,8 +10,8 @@ import { POLYGON_AMOY_CHAIN_ID, POLYGON_AMOY_RPC_URL } from "../config/chains";
 // Build a signer-bound contract instance from the connected wallet.
 // Returns null when no wallet is connected (caller must guard).
 export function useContract() {
-  const { walletProvider } = useWeb3ModalProvider();
-  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWalletProvider();
+  const { address, isConnected, chainId } = useWalletAccount();
   const [contract, setContract] = useState<Contract | null>(null);
 
   useEffect(() => {

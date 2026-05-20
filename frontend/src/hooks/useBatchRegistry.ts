@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Contract } from "ethers";
 import { usePinata } from "./usePinata";
 import { TX_OVERRIDES } from "../config/chains";
+import { QuantityUnit } from "../types";
 
 interface RegistryState {
   loading: boolean;
@@ -30,7 +31,8 @@ export function useBatchRegistry(contract: Contract | null) {
       productName: string,
       origin: string,
       harvestDate: number, // unix seconds
-      quantity: number, // grams
+      quantity: number,    // amount in the selected unit
+      unit: QuantityUnit,  // GRAMS or KILOGRAMS
       ocop: boolean,
       file?: File | null
     ) => {
@@ -54,6 +56,7 @@ export function useBatchRegistry(contract: Contract | null) {
           origin,
           harvestDate,
           quantity,
+          unit,
           ocop,
           cid,
           TX_OVERRIDES

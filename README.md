@@ -6,7 +6,8 @@
 **University**: RMIT University Vietnam
 **Group**: 7
 **Live deployment**: Polygon Amoy testnet
-**Contract address**: [`0xE15188bF47e56e0Dd118f51c85Ff9D23D4271268`](https://amoy.polygonscan.com/address/0xE15188bF47e56e0Dd118f51c85Ff9D23D4271268)
+**Contract address**: [`0xF6fd0c257DbaED8BeC38185C9017e54471625A14`](https://amoy.polygonscan.com/address/0xF6fd0c257DbaED8BeC38185C9017e54471625A14)
+**Live demo**: [fresh-trace-hmgn.vercel.app](https://fresh-trace-hmgn.vercel.app/)
 
 ---
 
@@ -229,11 +230,18 @@ The script auto-updates `frontend/.env` with the new contract address.
 ## Tests
 
 ```bash
+# Smart contract (Hardhat + chai)
 cd freshtrace-project/freshtrace
 npx hardhat test
+
+# Frontend (Vitest + React Testing Library)
+cd ../../frontend
+npm test
 ```
 
-**66 passing tests** covering:
+**76 contract tests + 18 frontend tests** — all run automatically via GitHub Actions CI on every push.
+
+Contract tests cover:
 
 - Deployment & role assignment (2)
 - `registerBatch` happy path + revert paths (6)
@@ -245,6 +253,9 @@ npx hardhat test
 - Edge cases: missing batch, large quantities, forward-skip, timestamp drift (12)
 - Anomaly detection: backward moves, duplicate stages (3)
 - Add-on flow integrity: backward-walk correctness (1)
+- Input validation: empty fields, oversized strings, date sanity, unit enum (10)
+
+Frontend tests cover: debounced batch-ID lookup, `bytes32` hex validation, recent-history localStorage logic.
 
 ---
 

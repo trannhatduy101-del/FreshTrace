@@ -1,10 +1,10 @@
-import { useWeb3Modal, useWeb3ModalAccount, useDisconnect, useSwitchNetwork } from "../hooks/useWalletHooks";
+import { useWalletConnect, useWalletAccount, useDisconnect, useSwitchNetwork } from "../hooks/useWallet";
 import { useState } from "react";
 import { EXPECTED_CHAIN_ID } from "../config/chains";
 
 export default function WalletConnect() {
-  const { open } = useWeb3Modal();
-  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { open } = useWalletConnect();
+  const { address, isConnected, chainId } = useWalletAccount();
   const { disconnect } = useDisconnect();
   const { switchNetwork } = useSwitchNetwork();
   const [menuOpen, setMenuOpen] = useState(false);

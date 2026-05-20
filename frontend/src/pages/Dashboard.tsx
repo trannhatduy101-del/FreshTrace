@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useWeb3ModalAccount } from "../hooks/useWalletHooks";
+import { useWalletAccount } from "../hooks/useWallet";
 import { useContract } from "../hooks/useContract";
 import { ipfsUrl } from "../config/pinata";
-import { ActionType, Batch } from "../types";
+import { ActionType, Batch, QuantityUnit } from "../types";
 
 // Combined card data: batch + its derived status flags
 interface BatchCard {
@@ -17,7 +17,7 @@ const PAGE_SIZE = 12;
 // Dashboard: scans all registered batches and renders a responsive card grid.
 export default function Dashboard() {
   const { contract, isConnected } = useContract();
-  const { address } = useWeb3ModalAccount();
+  const { address } = useWalletAccount();
   const [cards, setCards] = useState<BatchCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +47,7 @@ export default function Dashboard() {
               origin: rawBatch.origin,
               harvestDate: rawBatch.harvestDate,
               quantity: rawBatch.quantity,
+              unit: Number(rawBatch.unit ?? 0) as QuantityUnit,
               producer: rawBatch.producer,
               ocop: rawBatch.ocop,
               exists: rawBatch.exists,

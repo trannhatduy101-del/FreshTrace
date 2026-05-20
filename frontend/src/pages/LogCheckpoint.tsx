@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useWeb3ModalAccount } from "../hooks/useWalletHooks";
+import { useWalletAccount } from "../hooks/useWallet";
 import { useContract } from "../hooks/useContract";
 import { useRole } from "../hooks/useRole";
 import { useCheckpoint } from "../hooks/useCheckpoint";
@@ -13,6 +13,7 @@ import FlaggedBanner from "../components/FlaggedBanner";
 import AnomalyBadge from "../components/AnomalyBadge";
 import { ActionType, ACTION_LABELS, SELECTABLE_ACTIONS } from "../types";
 import { txLink } from "../config/chains";
+import { isValidBatchId } from "../lib/batchId";
 
 // Shared input className for terse markup
 const INPUT_CLASS =
@@ -23,7 +24,7 @@ const INPUT_CLASS =
 // Shows live timeline so user can verify what they're appending to.
 export default function LogCheckpoint() {
   const { contract, isConnected } = useContract();
-  const { address } = useWeb3ModalAccount();
+  const { address } = useWalletAccount();
   const role = useRole(contract, address);
   const { logCheckpoint, reset, loading, success, error, txHash, anomaly } =
     useCheckpoint(contract);
@@ -57,7 +58,7 @@ export default function LogCheckpoint() {
 
   // Debounce so timeline doesn't fire an RPC call on every keystroke
   const debouncedBatchId = useDebounce(batchId, 600);
-  const isValidId = /^0x[0-9a-fA-F]{64}$/.test(debouncedBatchId);
+  const isValidId = isValidBatchId(debouncedBatchId);
 
   // Live history for the batch the user is targeting
   const history = useBatchHistory(contract, isValidId ? debouncedBatchId : undefined);

@@ -7,6 +7,10 @@ import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
 import QRCodeDisplay from "../components/QRCodeDisplay";
 import { addressLink } from "../config/chains";
+import { useI18n } from "../i18n/I18nContext";
+import { useRecentBatches } from "../hooks/useRecentBatches";
+import { QUANTITY_UNIT_SYMBOL } from "../types";
+import { isValidBatchId } from "../lib/batchId";
 
 // Shared input className
 const INPUT_CLASS =
@@ -18,6 +22,8 @@ const INPUT_CLASS =
 export default function PublicTrace() {
   const { batchId: paramBatchId } = useParams<{ batchId?: string }>();
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const { recent, addRecent, clearRecent } = useRecentBatches();
 
   // Search input state (only used when no URL param is present)
   const [searchInput, setSearchInput] = useState("");
@@ -25,9 +31,17 @@ export default function PublicTrace() {
   // Read-only contract created once and shared across renders
   const contract = useMemo<Contract>(() => getReadOnlyContract(), []);
 
-  const isValidId = /^0x[0-9a-fA-F]{64}$/.test(paramBatchId ?? "");
+  const isValidId = isValidBatchId(paramBatchId);
 
   const history = useBatchHistory(contract, isValidId ? paramBatchId : undefined);
+
+  // Whenever we successfully load a batch, push it to recent history
+  useEffect(() => {
+    if (isValidId && history.batch && paramBatchId) {
+      addRecent({ id: paramBatchId, name: history.batch.productName });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history.batch, paramBatchId, isValidId]);
 
   // Submit handler navigates to /trace/:batchId so the URL is shareable
   const onSearch = (e: React.FormEvent) => {
@@ -46,10 +60,10 @@ export default function PublicTrace() {
     <div className="max-w-4xl mx-auto space-y-6">
       <header className="text-center">
         <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900">
-          Verify Product Origin
+          {t("trace.title")}
         </h1>
         <p className="text-sm text-gray-500 mt-2">
-          Scan a QR or paste a Batch ID to view its full supply-chain history.
+          {t("trace.subtitle")}
         </p>
       </header>
 
@@ -59,51 +73,79 @@ export default function PublicTrace() {
           type="text"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Paste Batch ID (0x...)"
+          placeholder={t("trace.searchPlaceholder")}
           className={`${INPUT_CLASS} font-mono text-xs`}
         />
         <button
           type="submit"
           className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-md text-sm font-medium shrink-0"
         >
-          Trace
+          {t("trace.searchBtn")}
         </button>
       </form>
 
-      {/* Initial empty state — no batch requested yet */}
+      {/* Initial empty state — show recent history if any */}
       {!paramBatchId && (
-        <div className="text-center py-16 bg-white rounded-lg border border-dashed border-gray-300">
-          <p className="text-gray-600">
-            Enter a Batch ID above to begin verification.
-          </p>
+        <div className="space-y-4">
+          <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
+            <p className="text-gray-600">{t("trace.emptyState")}</p>
+          </div>
+
+          {recent.length > 0 && (
+            <div className="bg-white rounded-lg border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">{t("trace.recentLabel")}</h3>
+                <button
+                  type="button"
+                  onClick={clearRecent}
+                  className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+                >
+                  {t("trace.clearRecent")}
+                </button>
+              </div>
+              <ul className="space-y-1">
+                {recent.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/trace/${r.id}`)}
+                      className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="text-sm text-gray-900 truncate">{r.name}</span>
+                      <span className="text-xs text-gray-400 font-mono shrink-0">
+                        {r.id.slice(0, 6)}…{r.id.slice(-4)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
       {/* Invalid format hint — shown while user is still editing */}
       {paramBatchId && !isValidId && (
         <div className="rounded-md bg-yellow-50 border border-yellow-200 p-6 text-center">
-          <p className="text-yellow-800 font-medium">Invalid Batch ID format</p>
-          <p className="text-sm text-yellow-700 mt-1">
-            A Batch ID is 66 characters long and starts with <span className="font-mono">0x</span>.
-            Make sure you copied the full ID.
-          </p>
+          <p className="text-yellow-800 font-medium">{t("trace.invalidFormat")}</p>
+          <p className="text-sm text-yellow-700 mt-1">{t("trace.invalidFormatMsg")}</p>
         </div>
       )}
 
       {isValidId && history.loading && (
         <div className="text-center py-16">
-          <p className="text-gray-500">Loading batch history…</p>
+          <p className="text-gray-500">{t("trace.loadingHistory")}</p>
         </div>
       )}
 
       {isValidId && !history.loading && history.error && (
         <div className="rounded-md bg-red-50 border border-red-200 p-6 text-center">
-          <p className="text-red-800 font-medium">Could not load batch</p>
+          <p className="text-red-800 font-medium">{t("trace.notFoundTitle")}</p>
           <p className="text-sm text-red-700 mt-2">
             {history.error.includes("BatchNotFound") || history.error.includes("does not exist")
-              ? "No batch with this ID exists on-chain. Check that you copied the full Batch ID."
+              ? t("trace.notFoundMsg")
               : history.error.includes("fetch") || history.error.includes("network") || history.error.includes("Network")
-              ? "Network error — could not reach the blockchain RPC. Check your internet connection and try again."
+              ? t("trace.networkError")
               : history.error}
           </p>
           <p className="text-xs text-red-500 mt-2 font-mono break-all">{history.error}</p>
@@ -151,9 +193,9 @@ export default function PublicTrace() {
                   )}
                 </div>
 
-                <InfoRow label="Origin" value={history.batch.origin} />
+                <InfoRow label={t("register.origin")} value={history.batch.origin} />
                 <InfoRow
-                  label="Harvested"
+                  label={t("register.harvestDate")}
                   value={new Date(
                     Number(history.batch.harvestDate) * 1000
                   ).toLocaleDateString(undefined, {
@@ -163,8 +205,8 @@ export default function PublicTrace() {
                   })}
                 />
                 <InfoRow
-                  label="Quantity"
-                  value={`${history.batch.quantity.toString()} g`}
+                  label={t("register.quantity")}
+                  value={`${history.batch.quantity.toString()} ${QUANTITY_UNIT_SYMBOL[history.batch.unit]}`}
                 />
                 <AddressRow label="Producer" address={history.batch.producer} />
               </div>
@@ -174,15 +216,14 @@ export default function PublicTrace() {
           {/* Direct-sale message — registered but never handed off */}
           {history.checkpoints.length === 1 && (
             <div className="rounded-md bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
-              This batch was sold directly by the producer. No intermediary
-              checkpoints recorded.
+              {t("trace.directSale")}
             </div>
           )}
 
           {/* Timeline */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Supply Chain Timeline
+              {t("trace.timelineTitle")}
             </h3>
             <AuditTimeline
               checkpoints={history.checkpoints}
