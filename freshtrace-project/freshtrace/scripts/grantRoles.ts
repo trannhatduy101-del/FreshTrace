@@ -4,8 +4,19 @@ dotenv.config();
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const contractAddress = process.env.CONTRACT_ADDRESS!;
-  const targetAddress = "0x7ceCf067854Ca5DA065DcFDF57dDA4056B2c5984";
+  const contractAddress = process.env.CONTRACT_ADDRESS;
+  const targetAddress = process.env.WALLET_ADDRESS;
+
+  if (!contractAddress) {
+    console.error("Set CONTRACT_ADDRESS in .env (the deployed contract).");
+    process.exitCode = 1;
+    return;
+  }
+  if (!targetAddress) {
+    console.error("Set WALLET_ADDRESS in .env (the wallet to receive roles).");
+    process.exitCode = 1;
+    return;
+  }
 
   const contract = await ethers.getContractAt("FreshTrace", contractAddress, deployer);
 

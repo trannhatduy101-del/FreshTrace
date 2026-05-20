@@ -4,8 +4,6 @@ import * as path from "path";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-const TARGET = "0x7ceCf067854Ca5DA065DcFDF57dDA4056B2c5984";
-
 const CHAIN_IDS: Record<string, number> = {
   localhost: 31337,
   hardhat: 31337,
@@ -14,7 +12,12 @@ const CHAIN_IDS: Record<string, number> = {
 
 async function main() {
   const [deployer] = await ethers.getSigners();
+  // Wallet to grant participant roles to. Defaults to the deployer so a fresh
+  // clone "just works" — set WALLET_ADDRESS in .env to grant a different wallet.
+  const TARGET = process.env.WALLET_ADDRESS || deployer.address;
+
   console.log("Deploying with:", deployer.address);
+  console.log("Granting roles to:", TARGET);
   console.log("Network:", network.name);
 
   const FreshTrace = await ethers.getContractFactory("FreshTrace");
@@ -27,7 +30,10 @@ async function main() {
   for (const name of roles) {
     const hash = await (contract as any)[name]();
     await contract.grantRole(hash, TARGET);
-    await contract.grantRole(hash, deployer.address);
+    // Also grant to deployer if different — convenient for testing
+    if (TARGET.toLowerCase() !== deployer.address.toLowerCase()) {
+      await contract.grantRole(hash, deployer.address);
+    }
     console.log(`Granted ${name}`);
   }
 
