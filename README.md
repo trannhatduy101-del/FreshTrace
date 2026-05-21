@@ -124,20 +124,30 @@ npm install
 ### 2. Configure environment files
 
 ```bash
-# Smart contract
+# Smart contract: defaults are fine, no editing required for local dev.
 cd freshtrace-project/freshtrace
 cp .env.example .env
-# Open .env and set WALLET_ADDRESS to your MetaMask address (optional but recommended)
 
-# Frontend — defaults work for local dev (uses Hardhat deterministic address)
+# Frontend: defaults work for local dev (uses the Hardhat deterministic
+# contract address that start-dev.ps1 always deploys to).
 cd ../../frontend
 cp .env.example .env
 ```
 
-> **First-time users without a MetaMask wallet?** You can skip `WALLET_ADDRESS`
-> and instead import the Hardhat #0 private key (in `.env.example`) into
-> MetaMask. That account already has 10000 test ETH and `setup.ts` will grant
-> it all 4 roles by default.
+On a local Hardhat node, `setup.ts` automatically grants each role to a
+different default Hardhat account so you can demo the separation of duties:
+
+| Role | Hardhat account | Address |
+|------|----------------|---------|
+| DEFAULT_ADMIN | #0 (deployer) | `0xf39F...2266` |
+| PRODUCER | #1 | `0x7099...79C8` |
+| LOGISTICS | #2 | `0x3C44...93BC` |
+| RETAILER | #3 | `0x90F7...b906` |
+| AUDITOR | #4 | `0x15d3...6A65` |
+
+Import the matching private keys into MetaMask (see
+`freshtrace-project/freshtrace/HARDHAT_ACCOUNTS.md` for the full list) and
+switch accounts in MetaMask to demo each role's view.
 
 ### 3. Start local blockchain + deploy (Windows PowerShell)
 
@@ -203,6 +213,15 @@ To use this deployment:
    ```
    PRIVATE_KEY=0xYOUR_PRIVATE_KEY
    POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
+
+   # Single-wallet mode (one wallet receives all four roles)
+   WALLET_ADDRESS=0xYOUR_METAMASK
+
+   # OR per-role mode (one wallet per role) for a realistic demo
+   # WALLET_PRODUCER=0x...
+   # WALLET_LOGISTICS=0x...
+   # WALLET_RETAILER=0x...
+   # WALLET_AUDITOR=0x...
    ```
 2. Deploy:
    ```bash
@@ -211,6 +230,8 @@ To use this deployment:
    ```
 
 The script auto-updates `frontend/.env` with the new contract address.
+If any per-role var is set, those win; otherwise WALLET_ADDRESS gets
+all four roles; otherwise the deployer does.
 
 ---
 
