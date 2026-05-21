@@ -1,6 +1,0 @@
-drop dead past-date check, bump name cap to 300 bytes
-
-With current block.timestamp only ~56 years past epoch the 100-year
-lookback can never trigger, so it was dead code until 2070. Dropped.
-Also bumped MAX_NAME_LEN from 100 to 300 since the byte limit was
-punishing Vietnamese (each diacritic is 2 bytes).

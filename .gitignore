@@ -46,3 +46,6 @@ npm-debug.log*
 
 # Job/temp files
 .claude/
+
+# Git filter-branch / filter-repo leftover
+.git-rewrite/
