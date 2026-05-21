@@ -13,6 +13,16 @@ export const translations = {
     trace:        { en: "Trace",         vi: "Tra cứu" },
   },
 
+  // Role badge labels shown next to the connected wallet
+  roles: {
+    admin:     { en: "Admin",     vi: "Quản trị" },
+    producer:  { en: "Producer",  vi: "Nông dân" },
+    logistics: { en: "Logistics", vi: "Vận chuyển" },
+    retailer:  { en: "Retailer",  vi: "Bán lẻ" },
+    auditor:   { en: "Auditor",   vi: "Kiểm toán" },
+    none:      { en: "No role",   vi: "Chưa có vai trò" },
+  },
+
   // Common buttons and status text
   common: {
     connect:      { en: "Connect Wallet",      vi: "Kết nối ví" },

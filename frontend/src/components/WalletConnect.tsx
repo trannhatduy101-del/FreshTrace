@@ -2,6 +2,7 @@ import { useWalletConnect, useWalletAccount, useDisconnect, useSwitchNetwork } f
 import { useState } from "react";
 import { EXPECTED_CHAIN_ID } from "../config/chains";
 import { useI18n } from "../i18n/I18nContext";
+import RoleBadges from "./RoleBadges";
 
 export default function WalletConnect() {
   const { open } = useWalletConnect();
@@ -42,7 +43,11 @@ export default function WalletConnect() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-2">
+      {/* Role badges sit next to the wallet pill so the audience can see
+          which permissions the connected account currently has. */}
+      <RoleBadges />
+
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
