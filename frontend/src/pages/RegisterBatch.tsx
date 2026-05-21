@@ -138,7 +138,7 @@ export default function RegisterBatch() {
             value={productName}
             onChange={(e) => setProductName(e.target.value)}
             placeholder={t("register.productPlaceholder")}
-            maxLength={100}
+            maxLength={300}
             required
             className={INPUT_CLASS}
           />
@@ -150,7 +150,7 @@ export default function RegisterBatch() {
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
             placeholder={t("register.originPlaceholder")}
-            maxLength={100}
+            maxLength={300}
             required
             className={INPUT_CLASS}
           />

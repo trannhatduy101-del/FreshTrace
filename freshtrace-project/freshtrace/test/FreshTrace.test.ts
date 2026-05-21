@@ -789,8 +789,8 @@ describe("FreshTrace", function () {
       ).to.be.revertedWith("productName required");
     });
 
-    it("registerBatch rejects productName > 100 chars", async function () {
-      const longName = "a".repeat(101);
+    it("registerBatch rejects productName > 300 bytes", async function () {
+      const longName = "a".repeat(301);
       await expect(
         freshTrace.connect(producer).registerBatch(longName, "Origin", validDate(), 100, 0, true, "")
       ).to.be.revertedWith("productName too long");

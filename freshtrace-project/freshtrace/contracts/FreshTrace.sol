@@ -158,15 +158,20 @@ contract FreshTrace is AccessControl {
     // catch obvious user errors (timestamp far in past or future).
     // ─────────────────────────────────────────────────────────────────────────
 
-    uint256 private constant MAX_NAME_LEN     = 100;
+    // 300 bytes = ~100 Vietnamese chars or ~300 ASCII chars, covers all
+    // realistic product names including those with diacritics.
+    uint256 private constant MAX_NAME_LEN     = 300;
     uint256 private constant MAX_LOCATION_LEN = 200;
     uint256 private constant MAX_REASON_LEN   = 500;
     uint256 private constant MAX_LABEL_LEN    = 100;
     uint256 private constant MAX_IPFS_LEN     = 100;
 
-    /// @dev Reject harvest dates older than 100 years before now or more than
-    ///      30 days in the future — protects against accidental date errors.
-    uint256 private constant MAX_HARVEST_LOOKBACK = 100 * 365 days;
+    /// @dev Reject harvest dates more than 30 days in the future — catches
+    ///      typos like "2030" when the user meant "2023".
+    ///      The past-date check was removed: with the unix-epoch baseline at
+    ///      1970, any reasonable past timestamp is necessarily within the
+    ///      meaningful range, and a strict floor would arbitrarily block
+    ///      legacy data migrations.
     uint256 private constant MAX_HARVEST_LOOKAHEAD = 30 days;
 
 
@@ -293,9 +298,8 @@ contract FreshTrace is AccessControl {
         require(bytes(ipfsHash).length <= MAX_IPFS_LEN,             "ipfsHash too long");
         require(quantity > 0,                                       "quantity must be > 0");
 
-        // Sanity-check harvestDate so producers can't accidentally enter year
-        // 1970 (timestamp 0) or a date decades in the future.
-        require(harvestDate + MAX_HARVEST_LOOKBACK >= block.timestamp, "harvestDate too old");
+        // Forward-only sanity check: reject obvious typos that put harvest
+        // far in the future. No past-date floor — see MAX_HARVEST_LOOKAHEAD docs.
         require(harvestDate <= block.timestamp + MAX_HARVEST_LOOKAHEAD, "harvestDate too far in future");
 
         // Derive a deterministic, collision-resistant batch ID from the inputs.

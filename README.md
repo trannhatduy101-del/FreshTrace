@@ -6,7 +6,7 @@
 **University**: RMIT University Vietnam
 **Group**: 7
 **Live deployment**: Polygon Amoy testnet
-**Contract address**: [`0xF6fd0c257DbaED8BeC38185C9017e54471625A14`](https://amoy.polygonscan.com/address/0xF6fd0c257DbaED8BeC38185C9017e54471625A14)
+**Contract address**: [`0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2`](https://amoy.polygonscan.com/address/0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2)
 **Live demo**: [fresh-trace-hmgn.vercel.app](https://fresh-trace-hmgn.vercel.app/)
 
 ## Problem Statement
