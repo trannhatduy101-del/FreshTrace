@@ -6,6 +6,7 @@ import { getReadOnlyContract } from "../hooks/useContract";
 import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
 import QRCodeDisplay from "../components/QRCodeDisplay";
+import ShareButton from "../components/ShareButton";
 import { addressLink } from "../config/chains";
 import { useI18n } from "../i18n/I18nContext";
 import { useRecentBatches } from "../hooks/useRecentBatches";
@@ -232,8 +233,11 @@ export default function PublicTrace() {
           </div>
 
           {/* QR code for sharing this trace URL */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
             <QRCodeDisplay batchId={paramBatchId!} />
+            <div className="text-center">
+              <ShareButton url={`${window.location.origin}/trace/${paramBatchId}`} />
+            </div>
           </div>
         </div>
       )}

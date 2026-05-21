@@ -4,6 +4,7 @@ import { useWalletAccount } from "../hooks/useWallet";
 import { useContract } from "../hooks/useContract";
 import { ipfsUrl } from "../config/pinata";
 import { ActionType, Batch, QuantityUnit } from "../types";
+import { useI18n } from "../i18n/I18nContext";
 
 // Combined card data: batch + its derived status flags
 interface BatchCard {
@@ -18,6 +19,7 @@ const PAGE_SIZE = 12;
 export default function Dashboard() {
   const { contract, isConnected } = useContract();
   const { address } = useWalletAccount();
+  const { t } = useI18n();
   const [cards, setCards] = useState<BatchCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,11 +94,10 @@ export default function Dashboard() {
     return (
       <div className="text-center py-16">
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-          Connect your wallet
+          {t("dashboard.connectFirst")}
         </h2>
         <p className="text-gray-600 max-w-md mx-auto">
-          The Dashboard displays all registered batches and their current status.
-          Connect a wallet to continue.
+          {t("dashboard.connectBody")}
         </p>
       </div>
     );
@@ -107,19 +108,19 @@ export default function Dashboard() {
       <header className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">
-            Dashboard
+            {t("dashboard.title")}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {loading
-              ? "Loading registered batches…"
-              : `${cards.length} ${cards.length === 1 ? "batch" : "batches"} registered`}
+              ? t("dashboard.loadingBatches")
+              : `${cards.length} ${cards.length === 1 ? t("dashboard.batchCount") : t("dashboard.batchesCount")}`}
           </p>
         </div>
         <Link
           to="/register"
           className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
         >
-          + Register Batch
+          {t("dashboard.registerBtn")}
         </Link>
       </header>
 
@@ -130,7 +131,7 @@ export default function Dashboard() {
             type="text"
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search by product name or origin…"
+            placeholder={t("dashboard.searchPlaceholder")}
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none"
           />
           {search && (
@@ -139,7 +140,7 @@ export default function Dashboard() {
               onClick={() => handleSearch("")}
               className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md"
             >
-              Clear
+              {t("common.clear")}
             </button>
           )}
         </div>
@@ -170,14 +171,14 @@ export default function Dashboard() {
       {!loading && cards.length === 0 && !error && (
         <div className="text-center py-16 bg-white rounded-lg border border-dashed border-gray-300">
           <p className="text-gray-600">
-            No batches yet. Producers can register their first harvest.
+            {t("dashboard.noBatches")}
           </p>
         </div>
       )}
 
       {!loading && cards.length > 0 && filtered.length === 0 && (
         <div className="text-center py-12 text-gray-500 text-sm">
-          No batches match "{search}".
+          {t("dashboard.noMatch")} "{search}".
         </div>
       )}
 
@@ -203,11 +204,11 @@ export default function Dashboard() {
                 disabled={page === 1}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
               >
-                ← Prev
+                ← {t("common.prev")}
               </button>
               <span className="text-sm text-gray-600">
-                Page {page} of {totalPages}
-                {search ? ` (${filtered.length} results)` : ""}
+                {t("common.page")} {page} {t("common.of")} {totalPages}
+                {search ? ` (${filtered.length} ${t("dashboard.results")})` : ""}
               </span>
               <button
                 type="button"
@@ -215,7 +216,7 @@ export default function Dashboard() {
                 disabled={page === totalPages}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
               >
-                Next →
+                {t("common.next")} →
               </button>
             </div>
           )}
@@ -235,6 +236,7 @@ function BatchCardItem({
   batch: Batch;
   checkpointCount: number;
 }) {
+  const { t } = useI18n();
   // Convert bigint timestamp to friendly date string
   const harvestStr = new Date(Number(batch.harvestDate) * 1000).toLocaleDateString(
     undefined,
@@ -272,11 +274,11 @@ function BatchCardItem({
           {/* Status badges — flagged takes precedence over active */}
           {batch.flagged ? (
             <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-              Flagged
+              {t("dashboard.flagged")}
             </span>
           ) : (
             <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-              Active
+              {t("dashboard.active")}
             </span>
           )}
         </div>
@@ -284,7 +286,7 @@ function BatchCardItem({
         <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
           <span>{harvestStr}</span>
           <span>
-            {checkpointCount} {checkpointCount === 1 ? "event" : "events"}
+            {checkpointCount} {checkpointCount === 1 ? t("dashboard.event") : t("dashboard.events")}
           </span>
         </div>
         {batch.ocop && (
@@ -297,7 +299,7 @@ function BatchCardItem({
                   clipRule="evenodd"
                 />
               </svg>
-              OCOP Certified
+              {t("dashboard.ocopCertified")}
             </span>
           </div>
         )}

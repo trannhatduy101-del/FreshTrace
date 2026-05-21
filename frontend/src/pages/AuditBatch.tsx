@@ -7,8 +7,10 @@ import { useResolveFlag } from "../hooks/useResolveFlag";
 import { useBatchHistory } from "../hooks/useBatchHistory";
 import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
+import ErrorMessage from "../components/ErrorMessage";
 import { txLink } from "../config/chains";
 import { Batch, QuantityUnit } from "../types";
+import { useI18n } from "../i18n/I18nContext";
 
 interface BatchRow {
   id: string;
@@ -24,6 +26,7 @@ export default function AuditBatch() {
   const { contract, isConnected } = useContract();
   const { address } = useWalletAccount();
   const role = useRole(contract, address);
+  const { t } = useI18n();
 
   const [rows, setRows] = useState<BatchRow[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -75,18 +78,18 @@ export default function AuditBatch() {
   }, [contract]);
 
   if (!isConnected)
-    return <Guard title="Wallet required" body="Connect your wallet to access Audit." />;
+    return <Guard title={t("register.walletRequired")} body={t("register.walletConnectMsg")} />;
   if (role.loading)
-    return <Guard title="Checking permissions…" body="Verifying your role on the contract." />;
+    return <Guard title={t("register.checkingPerms")} body={t("register.verifyingRole")} />;
   if (!role.isAuditor)
-    return <Guard title="Auditor role required" body="Only AUDITOR_ROLE wallets can access this page." />;
+    return <Guard title={t("audit.auditorOnly")} body={t("audit.auditorOnlyMsg")} />;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <header>
-        <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">Audit Batches</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">{t("audit.title")}</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Auditor-only · Review supply chain history and flag suspicious batches.
+          {t("audit.subtitle")}
         </p>
       </header>
 
@@ -109,7 +112,7 @@ export default function AuditBatch() {
 
       {!loadingList && rows.length === 0 && !listError && (
         <div className="text-center py-16 bg-white rounded-lg border border-dashed border-gray-300">
-          <p className="text-gray-600">No batches registered yet.</p>
+          <p className="text-gray-600">{t("audit.noBatches")}</p>
         </div>
       )}
 
@@ -156,6 +159,7 @@ function BatchAuditRow({
   const { flagBatch, reset, loading, success, error, txHash } = useFlagBatch(contract);
   const { resolveFlag, loading: resolving } = useResolveFlag(contract);
   const [reason, setReason] = useState("");
+  const { t } = useI18n();
 
   const onResolve = async (flagIndex: number) => {
     await resolveFlag(row.id, flagIndex);
@@ -201,7 +205,7 @@ function BatchAuditRow({
                 : "bg-green-100 text-green-800"
             }`}
           >
-            {row.batch.flagged ? "Flagged" : "Active"}
+            {row.batch.flagged ? t("dashboard.flagged") : t("dashboard.active")}
           </span>
           <span className="font-medium text-gray-900 truncate">{row.batch.productName}</span>
           <span className="text-sm text-gray-500 hidden sm:inline truncate">{row.batch.origin}</span>
@@ -210,7 +214,7 @@ function BatchAuditRow({
           <span className="text-xs text-gray-500">{harvestStr}</span>
           {row.flagCount > 0 && (
             <span className="text-xs font-medium text-red-600">
-              {row.flagCount} flag{row.flagCount > 1 ? "s" : ""}
+              {row.flagCount} {t("audit.flagsLabel").toLowerCase()}
             </span>
           )}
           <svg
@@ -230,7 +234,7 @@ function BatchAuditRow({
         <div className="border-t border-gray-100 px-5 py-5 space-y-6">
           {/* Batch ID */}
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Batch ID</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">{t("register.batchId")}</p>
             <p className="font-mono text-xs text-gray-700 break-all">{row.id}</p>
           </div>
 
@@ -238,7 +242,7 @@ function BatchAuditRow({
           {history.auditFlags.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Audit Flags ({history.auditFlags.length})
+                {t("audit.flagsLabel")} ({history.auditFlags.length})
               </p>
               {history.auditFlags.map((flag, i) => (
                 <FlaggedBanner
@@ -253,9 +257,9 @@ function BatchAuditRow({
 
           {/* Timeline */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Supply Chain Timeline</h3>
-            {history.loading && <p className="text-sm text-gray-500">Loading…</p>}
-            {history.error && <p className="text-sm text-red-600">Could not load history.</p>}
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("trace.timelineTitle")}</h3>
+            {history.loading && <p className="text-sm text-gray-500">{t("common.loading")}</p>}
+            {history.error && <p className="text-sm text-red-600">{t("checkpoint.notFound")}</p>}
             {!history.loading && history.checkpoints.length > 0 && (
               <AuditTimeline
                 checkpoints={history.checkpoints}
@@ -266,11 +270,11 @@ function BatchAuditRow({
 
           {/* Flag form */}
           <div className="border-t border-gray-100 pt-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Flag This Batch</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{t("audit.flagFormTitle")}</h3>
 
             {success && txHash ? (
               <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800 animate-fadeIn">
-                <p className="font-medium">Batch flagged on-chain.</p>
+                <p className="font-medium">{t("audit.flagSuccessMsg")}</p>
                 <a
                   href={txLink(txHash)}
                   target="_blank"
@@ -284,7 +288,7 @@ function BatchAuditRow({
                   onClick={() => { reset(); setReason(""); }}
                   className="block mt-2 text-xs text-red-700 hover:underline"
                 >
-                  Flag again →
+                  {t("audit.flagAgain")}
                 </button>
               </div>
             ) : (
@@ -293,7 +297,7 @@ function BatchAuditRow({
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="Reason for flagging (e.g. temperature excursion, missing cert)"
+                  placeholder={t("audit.flagPlaceholder")}
                   required
                   className={INPUT_CLASS}
                 />
@@ -302,14 +306,12 @@ function BatchAuditRow({
                   disabled={loading || !reason.trim()}
                   className="shrink-0 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  {loading ? "Flagging…" : "Flag"}
+                  {loading ? t("audit.flagging") : t("audit.flagBtn")}
                 </button>
               </form>
             )}
 
-            {error && (
-              <p className="mt-2 text-sm text-red-600">{error}</p>
-            )}
+            {error && <div className="mt-2"><ErrorMessage error={error} compact /></div>}
           </div>
         </div>
       )}

@@ -130,6 +130,9 @@ export const translations = {
     timelineTitle:  { en: "Supply Chain Timeline",                     vi: "Dòng thời gian chuỗi cung ứng" },
     recentLabel:    { en: "Recently viewed",                           vi: "Đã xem gần đây" },
     clearRecent:    { en: "Clear recent",                              vi: "Xoá lịch sử" },
+    shareBtn:       { en: "Share",                                     vi: "Chia sẻ" },
+    shareCopied:    { en: "Link copied!",                              vi: "Đã chép link!" },
+    shareTitle:     { en: "FreshTrace — verify product origin",        vi: "FreshTrace — kiểm tra xuất xứ" },
   },
 
   // ─── Audit Page ──────────────────────────────────────────────────
@@ -155,6 +158,33 @@ export const translations = {
     auditorOnly:    { en: "Auditor role required",                     vi: "Cần vai trò Auditor" },
     auditorOnlyMsg: { en: "Only AUDITOR_ROLE wallets can access this page.", vi: "Chỉ ví có vai trò AUDITOR mới truy cập được trang này." },
     noBatches:      { en: "No batches registered yet.",                vi: "Chưa có lô nào được đăng ký." },
+  },
+  // ─── Error messages (parsed from raw ethers/RPC errors) ─────────
+  errors: {
+    userRejected:       { en: "You cancelled the transaction in MetaMask.",
+                          vi: "Bạn đã hủy giao dịch trong MetaMask." },
+    insufficientFunds:  { en: "Not enough POL/ETH to pay gas. Top up your wallet and try again.",
+                          vi: "Không đủ POL/ETH để trả gas. Nạp thêm vào ví và thử lại." },
+    gasTipTooLow:       { en: "Gas tip too low for Polygon Amoy (needs ≥ 25 gwei). Try again — the app auto-sets a higher tip.",
+                          vi: "Gas tip quá thấp cho Polygon Amoy (cần ≥ 25 gwei). Thử lại — app tự đặt tip cao hơn." },
+    batchNotFound:      { en: "Batch not found on-chain. Check that you copied the full Batch ID.",
+                          vi: "Không tìm thấy lô trên blockchain. Kiểm tra bạn đã sao chép đầy đủ Mã lô." },
+    anomalyDetected:    { en: "Cannot log this action — supply chain is forward-only and this would move backward.",
+                          vi: "Không thể ghi hành động này — chuỗi cung ứng chỉ tiến tới, không lùi lại được." },
+    batchAlreadyExists: { en: "A batch with the same details already exists. Wait a moment and retry.",
+                          vi: "Đã có lô với thông tin giống hệt. Chờ chút rồi thử lại." },
+    alreadyResolved:    { en: "This flag has already been resolved.",
+                          vi: "Cờ này đã được giải quyết rồi." },
+    noWallet:           { en: "MetaMask is not installed. Install it from metamask.io and reload.",
+                          vi: "Chưa cài MetaMask. Cài từ metamask.io rồi tải lại trang." },
+    wrongNetwork:       { en: "Wrong network. Switch MetaMask to the expected chain.",
+                          vi: "Sai mạng. Đổi MetaMask sang mạng đúng." },
+    networkError:       { en: "Network error — could not reach the blockchain. Check your internet.",
+                          vi: "Lỗi mạng — không kết nối được blockchain. Kiểm tra Internet." },
+    validationFailed:   { en: "Validation failed",
+                          vi: "Dữ liệu không hợp lệ" },
+    unknown:            { en: "Something went wrong. See details below.",
+                          vi: "Có lỗi xảy ra. Xem chi tiết bên dưới." },
   },
 } as const;
 

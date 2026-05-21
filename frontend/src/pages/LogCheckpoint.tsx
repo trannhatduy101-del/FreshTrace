@@ -11,9 +11,11 @@ import IPFSUpload from "../components/IPFSUpload";
 import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
 import AnomalyBadge from "../components/AnomalyBadge";
+import ErrorMessage from "../components/ErrorMessage";
 import { ActionType, ACTION_LABELS, SELECTABLE_ACTIONS } from "../types";
 import { txLink } from "../config/chains";
 import { isValidBatchId } from "../lib/batchId";
+import { useI18n } from "../i18n/I18nContext";
 
 // Shared input className for terse markup
 const INPUT_CLASS =
@@ -25,6 +27,7 @@ const INPUT_CLASS =
 export default function LogCheckpoint() {
   const { contract, isConnected } = useContract();
   const { address } = useWalletAccount();
+  const { t } = useI18n();
   const role = useRole(contract, address);
   const { logCheckpoint, reset, loading, success, error, txHash, anomaly } =
     useCheckpoint(contract);
@@ -88,16 +91,16 @@ export default function LogCheckpoint() {
 
   // === Access guards ===
   if (!isConnected) {
-    return <GuardMessage title="Wallet required" body="Connect your wallet to log a checkpoint." />;
+    return <GuardMessage title={t("register.walletRequired")} body={t("register.walletConnectMsg")} />;
   }
   if (role.loading) {
-    return <GuardMessage title="Checking permissions…" body="Verifying your role on the contract." />;
+    return <GuardMessage title={t("register.checkingPerms")} body={t("register.verifyingRole")} />;
   }
   if (!role.isLogistics && !role.isRetailer) {
     return (
       <GuardMessage
-        title="Access denied"
-        body="Only Logistics and Retailer roles can log checkpoints. Connect an authorized wallet."
+        title={t("checkpoint.accessDenied")}
+        body={t("checkpoint.accessDeniedMsg")}
       />
     );
   }
@@ -106,10 +109,10 @@ export default function LogCheckpoint() {
     <div className="max-w-4xl mx-auto space-y-6">
       <header>
         <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">
-          Log Checkpoint
+          {t("checkpoint.title")}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Append a new event to a batch's supply chain history.
+          {t("checkpoint.subtitle")}
         </p>
       </header>
 
@@ -128,19 +131,19 @@ export default function LogCheckpoint() {
               onClick={() => setTab("main")}
               className={`flex-1 py-2 ${tab === "main" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
             >
-              Main Checkpoint
+              {t("checkpoint.mainTab")}
             </button>
             <button
               type="button"
               onClick={() => setTab("addon")}
               className={`flex-1 py-2 ${tab === "addon" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
             >
-              Add-on Process
+              {t("checkpoint.addonTab")}
             </button>
           </div>
 
           {/* Shared: Batch ID */}
-          <Field label="Batch ID" required>
+          <Field label={t("checkpoint.batchId")} required>
             <input
               type="text"
               value={batchId}
@@ -152,7 +155,7 @@ export default function LogCheckpoint() {
 
           {tab === "main" ? (
             <form onSubmit={onSubmit} className="space-y-5">
-              <Field label="Action" required>
+              <Field label={t("checkpoint.action")} required>
                 <select
                   value={actionType}
                   onChange={(e) => setActionType(Number(e.target.value) as ActionType)}
@@ -164,12 +167,12 @@ export default function LogCheckpoint() {
                 </select>
               </Field>
 
-              <Field label="Location" required>
+              <Field label={t("checkpoint.location")} required>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Binh Dien Market, HCMC"
+                  placeholder={t("checkpoint.locationPlaceholder")}
                   required
                   className={INPUT_CLASS}
                 />
@@ -177,29 +180,25 @@ export default function LogCheckpoint() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Evidence Photo <span className="text-gray-400 font-normal">(optional)</span>
+                  {t("checkpoint.evidence")} <span className="text-gray-400 font-normal">({t("common.optional")})</span>
                 </label>
                 <IPFSUpload onFileSelected={setFile} />
               </div>
 
               {anomaly && <AnomalyBadge attempted={anomaly.attempted} last={anomaly.last} />}
 
-              {error && !anomaly && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  {error}
-                </div>
-              )}
+              {error && !anomaly && <ErrorMessage error={error} />}
 
               {success && txHash && (
                 <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800 animate-fadeIn">
-                  <p className="font-medium">Checkpoint logged.</p>
+                  <p className="font-medium">{t("checkpoint.successTitle")}</p>
                   <a href={txLink(txHash)} target="_blank" rel="noopener noreferrer"
                     className="text-xs font-mono break-all hover:underline">
                     {txHash} ↗
                   </a>
                   <button type="button" onClick={reset}
                     className="block mt-2 text-xs text-green-700 hover:underline">
-                    Log another →
+                    {t("checkpoint.logAnother")}
                   </button>
                 </div>
               )}
@@ -209,59 +208,55 @@ export default function LogCheckpoint() {
                 disabled={loading || !batchId || !location}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-md text-sm font-medium"
               >
-                {loading ? "Submitting…" : "Log Checkpoint"}
+                {loading ? t("common.submitting") : t("checkpoint.submit")}
               </button>
             </form>
           ) : (
             <form onSubmit={onAddonSubmit} className="space-y-5">
               <p className="text-xs text-gray-500">
-                Add a custom process step (e.g. Quality Check, Cold Storage) without affecting the main supply-chain flow order.
+                {t("checkpoint.addonHint")}
               </p>
 
-              <Field label="Process Name" required>
+              <Field label={t("checkpoint.addonProcessName")} required>
                 <input
                   type="text"
                   value={addonLabel}
                   onChange={(e) => setAddonLabel(e.target.value)}
-                  placeholder="e.g. Quality Check, Cold Storage Entry"
+                  placeholder={t("checkpoint.addonPlaceholder")}
                   required
                   className={INPUT_CLASS}
                 />
               </Field>
 
-              <Field label="Location">
+              <Field label={t("checkpoint.location")}>
                 <input
                   type="text"
                   value={addonLocation}
                   onChange={(e) => setAddonLocation(e.target.value)}
-                  placeholder="e.g. Warehouse A, HCMC"
+                  placeholder={t("checkpoint.locationPlaceholder")}
                   className={INPUT_CLASS}
                 />
               </Field>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Evidence Photo <span className="text-gray-400 font-normal">(optional)</span>
+                  {t("checkpoint.evidence")} <span className="text-gray-400 font-normal">({t("common.optional")})</span>
                 </label>
                 <IPFSUpload onFileSelected={setAddonFile} />
               </div>
 
-              {addonError && (
-                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  {addonError}
-                </div>
-              )}
+              {addonError && <ErrorMessage error={addonError} />}
 
               {addonSuccess && addonTxHash && (
                 <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800 animate-fadeIn">
-                  <p className="font-medium">Add-on process logged.</p>
+                  <p className="font-medium">{t("checkpoint.addonSuccess")}</p>
                   <a href={txLink(addonTxHash)} target="_blank" rel="noopener noreferrer"
                     className="text-xs font-mono break-all hover:underline">
                     {addonTxHash} ↗
                   </a>
                   <button type="button" onClick={resetAddon}
                     className="block mt-2 text-xs text-green-700 hover:underline">
-                    Log another →
+                    {t("checkpoint.logAnother")}
                   </button>
                 </div>
               )}
@@ -271,7 +266,7 @@ export default function LogCheckpoint() {
                 disabled={addonLoading || !batchId || !addonLabel}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-md text-sm font-medium"
               >
-                {addonLoading ? "Submitting…" : "Log Add-on Process"}
+                {addonLoading ? t("common.submitting") : t("checkpoint.addonSubmit")}
               </button>
             </form>
           )}
@@ -280,7 +275,7 @@ export default function LogCheckpoint() {
         {/* Right: live timeline preview */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">
-            Current Timeline
+            {t("checkpoint.timelineTitle")}
             {history.batch && (
               <span className="ml-2 font-normal text-gray-500">
                 · {history.batch.productName}
@@ -289,20 +284,20 @@ export default function LogCheckpoint() {
           </h3>
           {!batchId && (
             <p className="text-sm text-gray-500">
-              Enter a Batch ID to preview its current checkpoints.
+              {t("checkpoint.enterBatchId")}
             </p>
           )}
           {batchId && !isValidId && (
             <p className="text-sm text-gray-400">
-              Paste the full Batch ID (66 characters starting with 0x).
+              {t("checkpoint.invalidId")}
             </p>
           )}
           {isValidId && history.loading && (
-            <p className="text-sm text-gray-500">Loading…</p>
+            <p className="text-sm text-gray-500">{t("common.loading")}</p>
           )}
           {isValidId && !history.loading && history.error && (
             <div>
-              <p className="text-sm text-red-600">Failed to load batch.</p>
+              <p className="text-sm text-red-600">{t("checkpoint.notFound")}</p>
               <p className="text-xs text-red-400 mt-1 break-all">{history.error}</p>
             </div>
           )}

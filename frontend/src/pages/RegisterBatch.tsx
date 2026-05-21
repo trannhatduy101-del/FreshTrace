@@ -5,6 +5,7 @@ import { useRole } from "../hooks/useRole";
 import { useBatchRegistry } from "../hooks/useBatchRegistry";
 import IPFSUpload from "../components/IPFSUpload";
 import QRCodeDisplay from "../components/QRCodeDisplay";
+import ErrorMessage from "../components/ErrorMessage";
 import { txLink } from "../config/chains";
 import { QuantityUnit } from "../types";
 import { useI18n } from "../i18n/I18nContext";
@@ -208,11 +209,7 @@ export default function RegisterBatch() {
           <IPFSUpload onFileSelected={setFile} />
         </div>
 
-        {error && (
-          <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-            {error}
-          </div>
-        )}
+        {error && <ErrorMessage error={error} />}
 
         <button
           type="submit"
