@@ -9,15 +9,11 @@
 **Contract address**: [`0xF6fd0c257DbaED8BeC38185C9017e54471625A14`](https://amoy.polygonscan.com/address/0xF6fd0c257DbaED8BeC38185C9017e54471625A14)
 **Live demo**: [fresh-trace-hmgn.vercel.app](https://fresh-trace-hmgn.vercel.app/)
 
----
-
 ## Problem Statement
 
 OCOP (One Commune, One Product) certifies high-quality Vietnamese agricultural produce. Yet consumers have no reliable way to verify a product's origin once it leaves the farm — paper certificates can be faked, QR codes link to centralised websites whose data can be edited, and supply chain participants can falsify records without trace.
 
 FreshTrace addresses this with an **append-only, role-based audit log** on the Polygon blockchain. Every checkpoint — from harvest to retail shelf — is signed by the participant's wallet and cannot be altered or deleted, even by the system administrator.
-
----
 
 ## Features
 
@@ -38,8 +34,6 @@ FreshTrace addresses this with an **append-only, role-based audit log** on the P
 - **Public trace requires zero wallet**: uses a read-only RPC provider via PublicNode
 - **Custom errors over revert strings**: gas-efficient and carry typed args (batchId, attempted action, last action) for cleaner front-end handling
 
----
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -53,8 +47,6 @@ FreshTrace addresses this with an **append-only, role-based audit log** on the P
 | Off-chain storage | IPFS via Pinata (optional, for evidence photos) |
 | Styling | Tailwind CSS |
 | QR generation | `qrcode.react` |
-
----
 
 ## Repository Structure
 
@@ -102,9 +94,6 @@ freshtrace/
             ├── pinata.ts                   # IPFS gateway helper
             └── FreshTrace.json             # ABI (synced from Hardhat artifact)
 ```
-
----
-
 ## Prerequisites
 
 - **Node.js** v20 or later
@@ -114,8 +103,6 @@ freshtrace/
 For Amoy testnet deployment additionally:
 - Polygon Amoy POL from [faucet.polygon.technology](https://faucet.polygon.technology)
 - A Pinata account for IPFS image uploads (optional)
-
----
 
 ## Quick Start — Local Hardhat Network
 
