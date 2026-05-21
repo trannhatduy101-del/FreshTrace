@@ -165,8 +165,8 @@ export const translations = {
     flaggedTitle:   { en: "This batch has been flagged for investigation", vi: "Lô này đã bị gắn cờ điều tra" },
     reason:         { en: "Reason:",                                   vi: "Lý do:" },
     flaggedBy:      { en: "Flagged by",                                vi: "Gắn cờ bởi" },
-    auditorOnly:    { en: "Auditor role required",                     vi: "Cần vai trò Auditor" },
-    auditorOnlyMsg: { en: "Only AUDITOR_ROLE wallets can access this page.", vi: "Chỉ ví có vai trò AUDITOR mới truy cập được trang này." },
+    auditorOnly:    { en: "Auditor role",                              vi: "Vai trò Auditor" },
+    auditorOnlyMsg: { en: "Only the Auditor role can access this section.", vi: "Chỉ vai trò Auditor mới truy cập được mục này." },
     noBatches:      { en: "No batches registered yet.",                vi: "Chưa có lô nào được đăng ký." },
   },
   // Error messages parsed from raw ethers and RPC errors
