@@ -1,12 +1,14 @@
 import { useWalletConnect, useWalletAccount, useDisconnect, useSwitchNetwork } from "../hooks/useWallet";
 import { useState } from "react";
 import { EXPECTED_CHAIN_ID } from "../config/chains";
+import { useI18n } from "../i18n/I18nContext";
 
 export default function WalletConnect() {
   const { open } = useWalletConnect();
   const { address, isConnected, chainId } = useWalletAccount();
   const { disconnect } = useDisconnect();
   const { switchNetwork } = useSwitchNetwork();
+  const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (!isConnected || !address) {
@@ -16,7 +18,7 @@ export default function WalletConnect() {
         onClick={() => open()}
         className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
       >
-        Connect Wallet
+        {t("common.connect")}
       </button>
     );
   }
@@ -34,7 +36,7 @@ export default function WalletConnect() {
         className="flex items-center gap-2 bg-red-100 hover:bg-red-200 border border-red-300 text-red-800 px-3 py-2 rounded-md text-sm font-medium transition-colors"
       >
         <span className="w-2 h-2 rounded-full bg-red-500" />
-        Wrong network — switch to {expectedLabel}
+        {t("common.wrongNetwork")} {expectedLabel}
       </button>
     );
   }
@@ -65,7 +67,7 @@ export default function WalletConnect() {
               onClick={() => { disconnect(); setMenuOpen(false); }}
               className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
-              Disconnect
+              {t("common.disconnect")}
             </button>
           </div>
         </>
