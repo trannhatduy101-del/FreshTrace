@@ -1,4 +1,7 @@
-import { createWeb3Modal, defaultConfig } from "@web3modal/ethers";
+// Web3Modal (AppKit) initialisation — must run BEFORE any useWeb3Modal hook
+// is mounted. Importing from "/react" matches the hooks' import in useWallet.ts
+// so both share the same internal state.
+import { createWeb3Modal, defaultConfig } from "@web3modal/ethers/react";
 import { polygonAmoy } from "./chains";
 
 const projectId =
@@ -20,6 +23,10 @@ const ethersConfig = defaultConfig({
 
 let initialized = false;
 
+/**
+ * Idempotent initialiser. Call once at app startup (from main.tsx).
+ * Subsequent calls are no-ops, so HMR re-evaluations don't double-init.
+ */
 export function initWeb3Modal() {
   if (initialized) return;
   createWeb3Modal({
@@ -35,5 +42,3 @@ export function initWeb3Modal() {
   });
   initialized = true;
 }
-
-initWeb3Modal();
