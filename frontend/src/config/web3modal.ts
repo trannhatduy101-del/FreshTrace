@@ -1,6 +1,6 @@
-// Web3Modal (AppKit) initialisation — must run BEFORE any useWeb3Modal hook
-// is mounted. Importing from "/react" matches the hooks' import in useWallet.ts
-// so both share the same internal state.
+// Web3Modal (AppKit) initialisation. Must run before any useWeb3Modal hook
+// gets mounted. We import from "/react" here to match the hooks' import in
+// useWallet.ts, so both modules share the same internal state.
 import { createWeb3Modal, defaultConfig } from "@web3modal/ethers/react";
 import { polygonAmoy } from "./chains";
 

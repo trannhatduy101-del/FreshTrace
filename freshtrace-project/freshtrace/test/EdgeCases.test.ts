@@ -4,10 +4,10 @@ import { FreshTrace } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 /**
- * Exhaustive edge-case suite. Each describe-block targets a category of
- * boundary or stress condition that the main test file does not cover.
+ * Edge case suite. Each describe block targets a category of boundary
+ * or stress condition that the main test file does not cover.
  */
-describe("FreshTrace — Exhaustive edge cases", function () {
+describe("FreshTrace - Exhaustive edge cases", function () {
   let freshTrace: FreshTrace;
   let admin: HardhatEthersSigner;
   let producer: HardhatEthersSigner;
@@ -68,7 +68,7 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     await freshTrace.grantRole(AUDITOR_ROLE,   auditor.address);
   });
 
-  // ── Boundary values ────────────────────────────────────────────────
+  // Boundary values
 
   describe("Boundary values", function () {
     it("Accepts quantity = 1 (minimum positive)", async function () {
@@ -104,7 +104,7 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     });
 
     it("Accepts a long Vietnamese product name within 300-byte budget", async function () {
-      // 100 chars of "đ" = 200 bytes — well within 300-byte limit
+      // 100 chars of "đ" = 200 bytes, well within the 300-byte limit
       const name = "đ".repeat(100);
       const id = await register({ name });
       const [b] = await freshTrace.getHistory(id);
@@ -144,14 +144,14 @@ describe("FreshTrace — Exhaustive edge cases", function () {
       expect(b.harvestDate).to.equal(tenYearsAgo);
     });
 
-    it("Accepts timestamp = 1 (year 1970) — no past floor", async function () {
+    it("Accepts timestamp = 1 (year 1970), no past floor", async function () {
       const id = await register({ date: 1 });
       const [b] = await freshTrace.getHistory(id);
       expect(b.harvestDate).to.equal(1);
     });
   });
 
-  // ── UTF-8 and special characters ───────────────────────────────────
+  // UTF-8 and international input
 
   describe("UTF-8 / international input", function () {
     it("Stores Vietnamese diacritics correctly", async function () {
@@ -178,13 +178,13 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     });
 
     it("Counts bytes, not characters, for length limits", async function () {
-      // "đ" = 2 bytes in UTF-8. 151 chars of "đ" = 302 bytes → exceeds 300-byte limit.
+      // "đ" takes 2 bytes in UTF-8. 151 of them = 302 bytes, just over the 300 cap.
       const overLimit = "đ".repeat(151);
       await expect(register({ name: overLimit })).to.be.revertedWith("productName too long");
     });
   });
 
-  // ── Duplicate detection ────────────────────────────────────────────
+  // Duplicate detection
 
   describe("Duplicate detection", function () {
     it("Allows two batches with same name/origin in different blocks", async function () {
@@ -206,7 +206,7 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     });
   });
 
-  // ── Add-on placement edge cases ────────────────────────────────────
+  // Add-on placement edge cases
 
   describe("Add-on placement", function () {
     let batchId: string;
@@ -258,7 +258,7 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     });
   });
 
-  // ── Flag lifecycle edge cases ──────────────────────────────────────
+  // Flag lifecycle stress
 
   describe("Flag lifecycle stress", function () {
     let batchId: string;
@@ -310,12 +310,12 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     });
   });
 
-  // ── RBAC stress ────────────────────────────────────────────────────
+  // Role-based access control stress
 
   describe("Role-based access control stress", function () {
     it("Granting same role twice is idempotent", async function () {
       await freshTrace.grantRole(PRODUCER_ROLE, producer.address);
-      // Should NOT revert — OpenZeppelin AccessControl handles this
+      // Should NOT revert: OpenZeppelin AccessControl treats this as a no-op.
       expect(await freshTrace.hasRole(PRODUCER_ROLE, producer.address)).to.be.true;
     });
 
@@ -342,7 +342,7 @@ describe("FreshTrace — Exhaustive edge cases", function () {
     });
   });
 
-  // ── Read functions on empty state ──────────────────────────────────
+  // View functions on edge state
 
   describe("View functions on edge state", function () {
     it("getBatchIds on fresh deploy returns []", async function () {

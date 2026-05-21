@@ -1,11 +1,12 @@
-// Polygon Amoy testnet definition — chainId 80002 is the official replacement
-// for Mumbai (deprecated April 2024). RPC URL is env-configurable for flexibility.
+// Polygon Amoy testnet. ChainId 80002 is the official replacement for
+// Mumbai, which was deprecated in April 2024. The RPC URL is overridable
+// via env so we can swap providers without rebuilding.
 
 export const POLYGON_AMOY_CHAIN_ID = 80002;
 export const HARDHAT_CHAIN_ID = 31337;
 
-// Which chain the app expects — driven by VITE_CHAIN_ID env var.
-// Defaults to Hardhat local for dev; set to 80002 for Amoy production.
+// Which chain the app talks to. Driven by VITE_CHAIN_ID: 31337 for
+// local Hardhat dev, 80002 for Amoy production.
 export const EXPECTED_CHAIN_ID: number =
   Number(import.meta.env.VITE_CHAIN_ID) || HARDHAT_CHAIN_ID;
 
@@ -14,7 +15,7 @@ export const POLYGON_AMOY_RPC_URL =
   (import.meta.env.VITE_POLYGON_AMOY_RPC_URL as string) ||
   "https://rpc-amoy.polygon.technology";
 
-// PolygonScan explorer base — used for linking transactions in the UI
+// PolygonScan explorer base, used for linking transactions in the UI.
 export const POLYGON_AMOY_EXPLORER = "https://amoy.polygonscan.com";
 
 // Web3Modal-compatible chain object (shape required by @web3modal/ethers)

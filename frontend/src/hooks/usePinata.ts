@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { pinata, ipfsUrl } from "../config/pinata";
 
 // Hook wrapping Pinata SDK with React-friendly loading/error state.
-// All uploads happen directly from the browser — no backend involved.
+// All uploads happen straight from the browser, no backend in between.
 export function usePinata() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

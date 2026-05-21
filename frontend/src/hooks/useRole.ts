@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers, Contract } from "ethers";
 
-// Bytes32 role identifiers — must match keccak256 of role string in contract.
+// Bytes32 role identifiers, mirrored from the contract constants.
 // DEFAULT_ADMIN_ROLE in OpenZeppelin AccessControl is bytes32(0).
 const ROLES = {
   PRODUCER: ethers.id("PRODUCER_ROLE"),
@@ -52,7 +52,7 @@ export function useRole(
     let cancelled = false;
     setState((s) => ({ ...s, loading: true }));
 
-    // Parallel hasRole calls — single round-trip latency for all 5
+    // Fire all hasRole calls in parallel so the user waits for one round trip, not five.
     Promise.all([
       contract.hasRole(ROLES.PRODUCER, address),
       contract.hasRole(ROLES.LOGISTICS, address),

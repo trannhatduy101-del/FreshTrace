@@ -4,7 +4,7 @@ import WalletConnect from "./WalletConnect";
 import LanguageToggle from "./LanguageToggle";
 import { useI18n } from "../i18n/I18nContext";
 
-// Nav link i18n keys — labels resolved at render time via t().
+// Nav link i18n keys. Labels are resolved at render time via t().
 const NAV_LINKS = [
   { to: "/",           tKey: "nav.dashboard",  end: true },
   { to: "/register",   tKey: "nav.register" },
@@ -36,7 +36,7 @@ export default function Layout({ children }: LayoutProps) {
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            {/* Brand mark — leaf icon + wordmark, links home */}
+            {/* Brand: leaf icon plus wordmark, links back to home. */}
             <Link to="/" className="flex items-center gap-2 group">
               <svg
                 className="w-7 h-7 text-green-600 group-hover:scale-110 transition-transform"
@@ -55,7 +55,7 @@ export default function Layout({ children }: LayoutProps) {
               </span>
             </Link>
 
-            {/* Desktop nav — hidden below md */}
+            {/* Desktop nav, hidden below the md breakpoint. */}
             <nav className="hidden md:flex items-center gap-1">
               {NAV_LINKS.map((link) => (
                 <NavLink
@@ -94,7 +94,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
 
-          {/* Mobile drawer — collapses on link tap to feel native */}
+          {/* Mobile drawer. Collapses on link tap so it feels native. */}
           {mobileOpen && (
             <div className="md:hidden pb-3 border-t border-gray-100 animate-fadeIn">
               <nav className="flex flex-col gap-1 pt-3">
@@ -124,7 +124,7 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Footer — credits Group 7 per project brief */}
+      {/* Footer, credits Group 7 per the project brief. */}
       <footer className="border-t border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-xs text-gray-500">
           FreshTrace — INTE264 Blockchain Technology Fundamentals, Group 7 · RMIT

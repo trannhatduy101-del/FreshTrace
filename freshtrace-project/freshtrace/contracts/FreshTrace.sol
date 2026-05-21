@@ -5,201 +5,184 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title FreshTrace
- * @author INTE264 Group 7 — RMIT University Vietnam
- * @notice Immutable audit log for Vietnam's OCOP-certified agricultural supply chain.
+ * @author INTE264 Group 7, RMIT University Vietnam
+ * @notice On-chain audit log for OCOP-certified produce moving from farm
+ *         to consumer in Vietnam.
  *
- * FreshTrace records every stage of a produce batch's journey from farm to consumer
- * on the Polygon blockchain. Each batch gets a unique on-chain ID; participants
- * append tamper-proof checkpoints as the product moves through the supply chain.
+ * Every batch gets a unique on-chain id. Participants append tamper-proof
+ * checkpoints as the product moves down the supply chain. Nothing is ever
+ * deleted, so the trail is always complete.
  *
- * Design decisions:
- * - AccessControl (OpenZeppelin) over Ownable: multiple distinct roles are needed
- *   simultaneously (Producer, Logistics, Retailer, Auditor) with different permissions.
- * - Forward-only checkpoint ordering: prevents retroactive falsification of the
- *   supply-chain history (e.g., cannot insert a PROCESSED step after RECEIVED).
- * - Append-only Checkpoint array: blockchain immutability means entries are never
- *   deleted or overwritten; the entire audit trail is always visible.
- * - Custom errors (Solidity ≥0.8.4): more gas-efficient than revert strings and
- *   carry structured data (batchId, action) for easier off-chain handling.
- * - IPFS hashes stored on-chain: keeps images/documents decentralised while the
- *   immutable CID reference is anchored to the blockchain record.
+ * Why these choices:
+ *  - OpenZeppelin AccessControl over Ownable: we need four roles working
+ *    in parallel (Producer, Logistics, Retailer, Auditor) with different
+ *    permissions, not one super-user.
+ *  - Forward-only checkpoint ordering stops anyone from rewriting history
+ *    after the fact (you cannot insert a PROCESSED step once SHIPPED has
+ *    already been recorded).
+ *  - Append-only Checkpoint array: there is no delete or overwrite, the
+ *    blockchain enforces immutability at the data level.
+ *  - Custom errors instead of revert strings: cheaper in gas and carry
+ *    typed data (batchId, action) that the front end can act on.
+ *  - IPFS hashes stored on-chain: images and documents stay off-chain
+ *    where they belong, but the immutable CID is anchored to the record.
  */
 contract FreshTrace is AccessControl {
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Roles
-    // Each supply-chain actor receives exactly one role. The admin (deployer)
-    // can grant/revoke roles via grantRole() without changing contract code.
-    // ─────────────────────────────────────────────────────────────────────────
+    // One role per supply chain actor. The admin (deployer) grants and
+    // revokes them at runtime via grantRole, no code changes needed.
 
-    /// @dev Farmers who register new produce batches at harvest time.
+    /// @dev Farmers who register new produce batches at harvest.
     bytes32 public constant PRODUCER_ROLE  = keccak256("PRODUCER_ROLE");
 
-    /// @dev Transporters and warehouse operators who move goods between stages.
+    /// @dev Transport and warehouse operators that move goods between stages.
     bytes32 public constant LOGISTICS_ROLE = keccak256("LOGISTICS_ROLE");
 
-    /// @dev End-point sellers who receive and hold finished goods for consumers.
+    /// @dev End sellers receiving finished goods for consumers.
     bytes32 public constant RETAILER_ROLE  = keccak256("RETAILER_ROLE");
 
-    /// @dev Inspectors who can raise quality or safety flags on any batch.
+    /// @dev Inspectors that can raise quality or safety flags on any batch.
     bytes32 public constant AUDITOR_ROLE   = keccak256("AUDITOR_ROLE");
 
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Enums
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * @notice The five ordered lifecycle stages a batch passes through.
-     * @dev    The uint value of each stage is used for forward-only enforcement:
-     *         a new action is only accepted if its uint value is strictly greater
-     *         than the last recorded action's uint value.
-     *         HARVESTED (0) is automatically set by registerBatch() and is never
-     *         a selectable action in logCheckpoint().
+     * @notice The five lifecycle stages a batch passes through, in order.
+     * @dev The integer value of each stage drives forward-only enforcement:
+     *      a new action is accepted only when its value is strictly greater
+     *      than the last main-flow action.
+     *      HARVESTED (0) is set automatically by registerBatch and is never
+     *      a valid argument to logCheckpoint.
      */
     enum ActionType {
-        HARVESTED,  // 0 — recorded at farm by producer
-        PROCESSED,  // 1 — washing, grading, initial handling
-        PACKED,     // 2 — packaged for distribution
-        SHIPPED,    // 3 — in transit to retailer
-        RECEIVED    // 4 — accepted at final retail location
+        HARVESTED,  // 0  recorded at farm by producer
+        PROCESSED,  // 1  washing, grading, initial handling
+        PACKED,     // 2  packaged for distribution
+        SHIPPED,    // 3  in transit to retailer
+        RECEIVED    // 4  accepted at final retail location
     }
 
     /**
-     * @notice The unit in which `Batch.quantity` is measured.
-     * @dev    Stored on-chain so consumers know whether a quantity of "5000"
-     *         means 5 kg (GRAMS) or 5 tonnes (KILOGRAMS). UI displays the
-     *         unit symbol alongside the number.
+     * @notice The unit of Batch.quantity.
+     * @dev Stored on-chain so consumers know whether 5000 means 5 kg
+     *      (GRAMS) or 5 tonnes (KILOGRAMS). The UI shows the symbol next
+     *      to the number.
      */
     enum QuantityUnit {
-        GRAMS,      // 0 — small batches (e.g. premium fruit boxes)
-        KILOGRAMS   // 1 — bulk produce
+        GRAMS,      // 0  small batches like premium fruit boxes
+        KILOGRAMS   // 1  bulk produce
     }
 
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Structs
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * @notice Core metadata for a registered produce batch.
-     * @dev    Stored in a mapping keyed by the deterministic batchId (keccak256 hash).
-     *         `exists` is used as a presence-check sentinel instead of a zero-address
-     *         comparison, making the intent explicit.
+     * @notice Core metadata for a registered batch.
+     * @dev Stored in a mapping keyed by the deterministic batchId hash.
+     *      The `exists` field is a presence sentinel so we never compare
+     *      addresses to zero to check whether a slot has been filled.
      */
     struct Batch {
-        string       productName; // Human-readable name, e.g. "Da Lat Strawberry"
-        string       origin;      // Geographic origin, e.g. "Da Lat, Lam Dong"
-        uint256      harvestDate; // Unix timestamp (seconds) of the harvest date
-        uint256      quantity;    // Numeric weight, interpreted with `unit` below
-        QuantityUnit unit;        // GRAMS or KILOGRAMS — disambiguates `quantity`
-        address      producer;    // Wallet address of the registering producer
-        bool         ocop;        // True if the batch carries an OCOP quality certification
-        bool         exists;      // Sentinel: true once the batch has been registered
-        bool         flagged;     // True if an auditor has raised a concern on this batch
-        string       ipfsHash;    // Pinata/IPFS CID for the product photo or certificate
+        string       productName;  // human-readable name, e.g. "Da Lat Strawberry"
+        string       origin;       // where it came from, e.g. "Da Lat, Lam Dong"
+        uint256      harvestDate;  // unix seconds
+        uint256      quantity;     // amount in the unit below
+        QuantityUnit unit;         // GRAMS or KILOGRAMS
+        address      producer;     // wallet that called registerBatch
+        bool         ocop;         // true if the batch carries OCOP certification
+        bool         exists;       // sentinel: true once registered
+        bool         flagged;      // true if at least one unresolved audit flag
+        string       ipfsHash;     // Pinata CID for the product photo or cert
     }
 
     /**
-     * @notice A single supply-chain event appended to a batch's history.
-     * @dev    Two kinds of checkpoints share this struct:
-     *           1. Main-flow checkpoints (addonLabel == ""): subject to forward-only
-     *              ordering enforced by logCheckpoint().
-     *           2. Add-on checkpoints (addonLabel != ""): custom named steps (e.g.
-     *              "Quality Check", "Cold Storage") logged via logAddon() that do NOT
-     *              affect the forward-only ordering of the main flow.
-     *         Sharing one struct keeps getHistory() simple and the timeline chronological.
+     * @notice A single event in a batch's history.
+     * @dev Two kinds of checkpoints share this struct:
+     *      1. Main-flow checkpoints (addonLabel == "") follow the strict
+     *         forward-only order enforced in logCheckpoint.
+     *      2. Add-on checkpoints (addonLabel != "") are custom named steps
+     *         like "Quality Check" or "Cold Storage", logged via logAddon,
+     *         and they do not affect main-flow ordering.
+     *      Keeping both kinds in one struct makes getHistory a single
+     *      call and the timeline naturally chronological.
      */
     struct Checkpoint {
-        address    actor;      // Wallet address of the participant who logged this event
-        string     location;   // Physical location where the event occurred
-        uint256    timestamp;  // block.timestamp at the time of logging (unix seconds)
-        ActionType action;     // Lifecycle stage (ignored for add-on checkpoints)
-        string     ipfsHash;   // Optional CID for photo evidence (empty string if none)
-        string     addonLabel; // Non-empty string identifies this as an add-on step
+        address    actor;       // wallet that logged this event
+        string     location;    // where it happened
+        uint256    timestamp;   // block.timestamp at log time (unix seconds)
+        ActionType action;      // lifecycle stage, ignored for add-ons
+        string     ipfsHash;    // optional photo evidence CID
+        string     addonLabel;  // non-empty means this is an add-on entry
     }
 
     /**
      * @notice A quality or safety concern raised by an auditor.
-     * @dev    Flags are informational only — they do not block further checkpoint logging.
-     *         Multiple flags can accumulate on the same batch from different auditors.
-     *         A flag can be resolved once the concern is addressed, which clears
-     *         batch.flagged if no other unresolved flags remain.
+     * @dev Flags are informational: they do not block further checkpoints.
+     *      A batch can accumulate multiple flags from different auditors,
+     *      and each one can be resolved independently. batch.flagged
+     *      stays true while any flag is still unresolved.
      */
     struct AuditFlag {
-        address auditor;    // Wallet of the auditor who raised the flag
-        string  reason;     // Free-text description of the concern
-        uint256 timestamp;  // When the flag was raised (unix seconds)
-        bool    resolved;   // True once an auditor marks the concern as addressed
-        address resolvedBy; // Wallet that resolved the flag (zero address if unresolved)
-        uint256 resolvedAt; // When the flag was resolved (0 if unresolved)
+        address auditor;     // wallet that raised the flag
+        string  reason;      // free-text description of the concern
+        uint256 timestamp;   // when the flag was raised
+        bool    resolved;    // true once an auditor marks it as addressed
+        address resolvedBy;  // wallet that resolved it (zero if not yet)
+        uint256 resolvedAt;  // when it was resolved (0 if not yet)
     }
 
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // State variables
-    // ─────────────────────────────────────────────────────────────────────────
+    // State
 
-    /// @dev Primary store: batchId → Batch metadata.
+    /// @dev batchId -> metadata
     mapping(bytes32 => Batch) private batches;
 
-    /// @dev Append-only event log per batch. New entries are pushed; none are removed.
+    /// @dev batchId -> append-only event log. Push only, no pop or delete.
     mapping(bytes32 => Checkpoint[]) private checkpoints;
 
-    /// @dev Audit flags per batch, accumulated over time.
+    /// @dev batchId -> all flags raised against it, in raise order.
     mapping(bytes32 => AuditFlag[]) private auditFlags;
 
-    /// @dev Ordered list of all registered batchIds — used by getBatchIds() for enumeration.
+    /// @dev Insertion-ordered list of every batchId, used by getBatchIds.
     bytes32[] private batchIds;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Input-validation constants
-    // Length caps protect against unbounded-string gas attacks; date caps
-    // catch obvious user errors (timestamp far in past or future).
-    // ─────────────────────────────────────────────────────────────────────────
 
-    // 300 bytes = ~100 Vietnamese chars or ~300 ASCII chars, covers all
-    // realistic product names including those with diacritics.
-    uint256 private constant MAX_NAME_LEN     = 300;
+    // Validation limits
+    // Length caps stop a caller from grief-attacking storage with huge
+    // strings. Date caps catch obvious user typos.
+
+    uint256 private constant MAX_NAME_LEN     = 300;  // ~100 Vietnamese chars or 300 ASCII
     uint256 private constant MAX_LOCATION_LEN = 200;
     uint256 private constant MAX_REASON_LEN   = 500;
     uint256 private constant MAX_LABEL_LEN    = 100;
     uint256 private constant MAX_IPFS_LEN     = 100;
 
-    /// @dev Reject harvest dates more than 30 days in the future — catches
-    ///      typos like "2030" when the user meant "2023".
-    ///      The past-date check was removed: with the unix-epoch baseline at
-    ///      1970, any reasonable past timestamp is necessarily within the
-    ///      meaningful range, and a strict floor would arbitrarily block
-    ///      legacy data migrations.
+    /// @dev Reject a harvest date more than 30 days ahead of now. Catches
+    ///      typos like "2030" when the user meant "2023". There is no past
+    ///      floor on purpose: legacy migrations should not be blocked.
     uint256 private constant MAX_HARVEST_LOOKAHEAD = 30 days;
 
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Custom errors (gas-efficient vs. revert strings; carry typed arguments)
-    // ─────────────────────────────────────────────────────────────────────────
+    // Custom errors
 
-    /**
-     * @dev Emitted by logCheckpoint() when the requested action would move the
-     *      batch backwards or stay at the same stage.
-     * @param batchId   The batch on which the anomaly was detected.
-     * @param attempted The action the caller tried to log.
-     * @param last      The last successfully recorded main-flow action.
-     */
+    /// @dev Thrown by logCheckpoint when the requested action would go
+    ///      backwards or stay on the same stage as the last main-flow one.
     error AnomalyDetected(bytes32 batchId, ActionType attempted, ActionType last);
 
-    /// @dev Thrown whenever a function receives a batchId that has not been registered.
+    /// @dev Thrown whenever a function receives a batchId that was never registered.
     error BatchNotFound(bytes32 batchId);
 
-    /// @dev Thrown by registerBatch() when a deterministic collision is detected.
+    /// @dev Thrown by registerBatch on a hash collision (essentially impossible
+    ///      with abi.encode + block.timestamp, but kept defensively).
     error BatchAlreadyExists(bytes32 batchId);
 
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Events (indexed fields enable efficient off-chain filtering)
-    // ─────────────────────────────────────────────────────────────────────────
+    // Events
+    // Indexed fields let the front end filter cheaply on batchId.
 
-    /// @notice Emitted when a new batch is registered on-chain.
+    /// @notice Fired when a producer registers a new batch.
     event BatchRegistered(
         bytes32 indexed batchId,
         string productName,
@@ -207,7 +190,7 @@ contract FreshTrace is AccessControl {
         address producer
     );
 
-    /// @notice Emitted after a successful main-flow checkpoint.
+    /// @notice Fired after a successful main-flow checkpoint.
     event CheckpointLogged(
         bytes32 indexed batchId,
         address actor,
@@ -215,21 +198,14 @@ contract FreshTrace is AccessControl {
         string location
     );
 
-    /// @notice Emitted when an auditor flags a batch for review.
+    /// @notice Fired when an auditor flags a batch for review.
     event BatchFlagged(
         bytes32 indexed batchId,
         address auditor,
         string reason
     );
 
-    /// @notice Emitted when an auditor marks a flag as resolved.
-    event FlagResolved(
-        bytes32 indexed batchId,
-        address resolvedBy,
-        uint256 flagIndex
-    );
-
-    /// @notice Emitted when an add-on (custom) process step is logged.
+    /// @notice Fired when an add-on process step is logged.
     event AddonLogged(
         bytes32 indexed batchId,
         address actor,
@@ -237,46 +213,41 @@ contract FreshTrace is AccessControl {
         string location
     );
 
+    /// @notice Fired when an auditor marks a flag as resolved.
+    event FlagResolved(
+        bytes32 indexed batchId,
+        address resolvedBy,
+        uint256 flagIndex
+    );
 
-    // ─────────────────────────────────────────────────────────────────────────
+
     // Constructor
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * @dev Grants DEFAULT_ADMIN_ROLE to the deploying address so that it can
-     *      subsequently grant PRODUCER_ROLE, LOGISTICS_ROLE, etc. to participants
-     *      via grantRole() without requiring any contract redeployment.
+     * @dev Grants DEFAULT_ADMIN_ROLE to the deployer so they can later
+     *      grant the four participant roles via grantRole without needing
+     *      a redeploy.
      */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Write functions
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * @notice Registers a new produce batch and automatically records the
-     *         initial HARVESTED checkpoint.
-     * @dev    Access: PRODUCER_ROLE only.
+     * @notice Register a new batch. Auto-logs the initial HARVESTED checkpoint
+     *         in the same transaction so the timeline always starts at stage 0.
+     * @dev Access: PRODUCER_ROLE only.
      *
-     *         The batchId is a keccak256 hash of (productName, origin, harvestDate,
-     *         msg.sender, block.timestamp). Using the timestamp as part of the seed
-     *         allows the same producer to register two batches of the same product
-     *         on different days without collision.
+     *      The batchId is a keccak256 hash of (productName, origin,
+     *      harvestDate, msg.sender, block.timestamp). The timestamp in
+     *      the seed lets the same producer register the same product on
+     *      different days without collision.
      *
-     *         The HARVESTED checkpoint is inserted atomically with the batch so that
-     *         getHistory() always returns at least one checkpoint, simplifying
-     *         front-end rendering logic.
-     *
-     * @param productName Human-readable name of the agricultural product.
-     * @param origin      Geographic provenance of the batch.
-     * @param harvestDate Unix timestamp (seconds) of the actual harvest date.
-     * @param quantity    Batch weight in grams.
-     * @param ocop        Whether the product holds OCOP certification.
-     * @param ipfsHash    Pinata CID for the product image or certificate (may be empty).
-     * @return batchId    The unique bytes32 identifier for the newly registered batch.
+     *      Pairing the registration and the first checkpoint atomically
+     *      keeps getHistory simple: callers never see a batch with zero
+     *      checkpoints.
      */
     function registerBatch(
         string calldata productName,
@@ -288,34 +259,27 @@ contract FreshTrace is AccessControl {
         string calldata ipfsHash
     ) external onlyRole(PRODUCER_ROLE) returns (bytes32) {
 
-        // ── Input validation ──
-        // Reject empty + oversized strings to keep storage bounded and prevent
-        // gas-griefing attacks via huge string parameters.
+        // Input validation. Reject empty and oversized strings up front.
         require(bytes(productName).length > 0,                      "productName required");
         require(bytes(productName).length <= MAX_NAME_LEN,          "productName too long");
         require(bytes(origin).length > 0,                           "origin required");
         require(bytes(origin).length <= MAX_NAME_LEN,               "origin too long");
         require(bytes(ipfsHash).length <= MAX_IPFS_LEN,             "ipfsHash too long");
         require(quantity > 0,                                       "quantity must be > 0");
-
-        // Forward-only sanity check: reject obvious typos that put harvest
-        // far in the future. No past-date floor — see MAX_HARVEST_LOOKAHEAD docs.
         require(harvestDate <= block.timestamp + MAX_HARVEST_LOOKAHEAD, "harvestDate too far in future");
 
-        // Derive a deterministic, collision-resistant batch ID from the inputs.
-        // Uses abi.encode (NOT encodePacked) on dynamic types so concatenated
-        // strings cannot collide: ("ab","cd") and ("a","bcd") would otherwise
-        // hash identically under encodePacked.
+        // Derive a collision-resistant id. We use abi.encode rather than
+        // abi.encodePacked because packed encoding of dynamic types can
+        // produce the same bytes for different inputs (e.g. "ab"+"cd" and
+        // "a"+"bcd" both pack to "abcd").
         bytes32 batchId = keccak256(
             abi.encode(productName, origin, harvestDate, msg.sender, block.timestamp)
         );
 
-        // Guard against hash collisions (extremely rare but theoretically possible).
         if (batches[batchId].exists) {
             revert BatchAlreadyExists(batchId);
         }
 
-        // Persist the batch metadata to on-chain storage.
         batches[batchId] = Batch({
             productName: productName,
             origin:      origin,
@@ -329,12 +293,10 @@ contract FreshTrace is AccessControl {
             ipfsHash:    ipfsHash
         });
 
-        // Track the ID so getBatchIds() can enumerate all batches.
         batchIds.push(batchId);
 
-        // Automatically open the audit trail with a HARVESTED checkpoint.
-        // This ensures the very first entry is always at stage 0, which the
-        // forward-only check in logCheckpoint() compares against.
+        // First checkpoint at HARVESTED. The forward-only check in
+        // logCheckpoint compares against this entry next time around.
         checkpoints[batchId].push(Checkpoint({
             actor:      msg.sender,
             location:   origin,
@@ -349,22 +311,15 @@ contract FreshTrace is AccessControl {
     }
 
     /**
-     * @notice Appends a main-flow supply-chain checkpoint to an existing batch.
-     * @dev    Access: LOGISTICS_ROLE or RETAILER_ROLE.
+     * @notice Append a main-flow checkpoint to an existing batch.
+     * @dev Access: LOGISTICS_ROLE or RETAILER_ROLE.
      *
-     *         Forward-only enforcement: the uint value of `action` must be strictly
-     *         greater than the last main-flow action stored in the checkpoint array.
-     *         Add-on checkpoints (addonLabel != "") store ActionType.HARVESTED (0)
-     *         as a placeholder and must be skipped by the ordering comparison.
-     *
-     *         The comparison iterates only the last element (O(1)) because the
-     *         array is always appended in chronological order and we only need the
-     *         most recent main-flow stage to validate the next step.
-     *
-     * @param batchId  The batch to update.
-     * @param action   The lifecycle stage being recorded (PROCESSED=1 … RECEIVED=4).
-     * @param location Physical location where this stage occurred.
-     * @param ipfsHash Optional Pinata CID for photographic evidence (empty if none).
+     *      Forward-only rule: the integer value of `action` must be
+     *      strictly greater than the last MAIN-FLOW action. We walk the
+     *      array backwards to find that last main-flow entry, skipping
+     *      any add-on checkpoints in between. Without that skip, an add-on
+     *      (which stores ActionType.HARVESTED as a placeholder) would
+     *      look like a backward jump and break the rule incorrectly.
      */
     function logCheckpoint(
         bytes32 batchId,
@@ -377,32 +332,18 @@ contract FreshTrace is AccessControl {
             "Caller lacks LOGISTICS_ROLE or RETAILER_ROLE"
         );
 
-        // ── Input validation ──
         require(bytes(location).length > 0,                "location required");
         require(bytes(location).length <= MAX_LOCATION_LEN, "location too long");
         require(bytes(ipfsHash).length <= MAX_IPFS_LEN,     "ipfsHash too long");
 
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
 
-        // Enforce forward-only ordering by comparing against the last checkpoint.
-        // Note: add-on checkpoints use ActionType.HARVESTED (0) as a placeholder;
-        // we compare against the LAST element regardless — for the forward-only
-        // rule to hold correctly, logAddon() stores action=HARVESTED but the
-        // comparison still uses the integer value of the last main-flow action
-        // because add-ons are always inserted between main-flow steps and their
-        // placeholder value (0) would falsely block the next main-flow step.
-        //
-        // IMPORTANT: the ordering comparison intentionally examines the last array
-        // element, which could be an add-on. An add-on stores action=HARVESTED (0),
-        // so any main-flow action (≥1) would pass the `> lastAction` check even
-        // after an add-on — this is the intended behavior.
+        // Walk backwards looking for the last main-flow checkpoint
+        // (addonLabel empty) and compare against its action.
         Checkpoint[] storage cps = checkpoints[batchId];
         if (cps.length > 0) {
-            // Walk backwards to find the last MAIN-FLOW checkpoint for comparison.
-            // This ensures add-on placeholders do not interfere with ordering.
             for (uint256 i = cps.length; i > 0; i--) {
                 if (bytes(cps[i - 1].addonLabel).length == 0) {
-                    // Found the last main-flow checkpoint.
                     ActionType lastAction = cps[i - 1].action;
                     if (uint256(action) <= uint256(lastAction)) {
                         revert AnomalyDetected(batchId, action, lastAction);
@@ -418,29 +359,24 @@ contract FreshTrace is AccessControl {
             timestamp:  block.timestamp,
             action:     action,
             ipfsHash:   ipfsHash,
-            addonLabel: "" // Empty string marks this as a main-flow checkpoint.
+            addonLabel: ""  // empty marks this as a main-flow checkpoint
         }));
 
         emit CheckpointLogged(batchId, msg.sender, action, location);
     }
 
     /**
-     * @notice Appends a custom add-on process step that sits outside the main
-     *         HARVESTED→RECEIVED lifecycle order.
-     * @dev    Access: any of the four roles (all participants may log add-ons).
+     * @notice Append a custom add-on process step that sits outside the
+     *         main HARVESTED -> RECEIVED lifecycle order.
+     * @dev Access: any of the four roles can log add-ons.
      *
-     *         Use-cases: "Quality Lab Test", "Cold Storage Entry", "Fumigation",
-     *         "Re-packaging" — steps that are real supply-chain events but do not
-     *         map cleanly to the five main ActionType stages.
+     *      Use cases: "Quality Lab Test", "Cold Storage Entry",
+     *      "Fumigation", "Repackaging". These are real supply chain
+     *      events that do not fit the five main stages.
      *
-     *         Add-ons store ActionType.HARVESTED (0) as a placeholder value because
-     *         the `action` field is irrelevant for add-ons. The addonLabel string
-     *         is what distinguishes them from main-flow checkpoints in the UI.
-     *
-     * @param batchId    The batch to annotate.
-     * @param addonLabel Descriptive name for the custom process step (must be non-empty).
-     * @param location   Where the add-on process took place (may be empty).
-     * @param ipfsHash   Optional evidence CID (may be empty).
+     *      Add-ons store HARVESTED in the action field as a placeholder
+     *      because the value is meaningless for them. The addonLabel
+     *      string is what distinguishes them in the UI.
      */
     function logAddon(
         bytes32 batchId,
@@ -457,7 +393,6 @@ contract FreshTrace is AccessControl {
         );
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
 
-        // ── Input validation ──
         require(bytes(addonLabel).length > 0,                "addonLabel required");
         require(bytes(addonLabel).length <= MAX_LABEL_LEN,   "addonLabel too long");
         require(bytes(location).length <= MAX_LOCATION_LEN,  "location too long");
@@ -467,7 +402,7 @@ contract FreshTrace is AccessControl {
             actor:      msg.sender,
             location:   location,
             timestamp:  block.timestamp,
-            action:     ActionType.HARVESTED, // Placeholder — not used for add-ons.
+            action:     ActionType.HARVESTED,  // placeholder, not used for add-ons
             ipfsHash:   ipfsHash,
             addonLabel: addonLabel
         }));
@@ -476,19 +411,16 @@ contract FreshTrace is AccessControl {
     }
 
     /**
-     * @notice Raises a quality or safety concern on a batch (warning only).
-     * @dev    Access: AUDITOR_ROLE only.
+     * @notice Raise a quality or safety concern on a batch. Warning only,
+     *         it does not stop further checkpoints.
+     * @dev Access: AUDITOR_ROLE only.
      *
-     *         Flagging sets batch.flagged = true and appends an AuditFlag record.
-     *         It does NOT block further checkpoint logging — the supply chain
-     *         continues so goods already in transit are not stranded. The flag is
-     *         surfaced prominently in the UI (FlaggedBanner component) so all
-     *         participants are aware of the concern.
+     *      Flagging sets batch.flagged = true and appends an AuditFlag.
+     *      Logistics is intentionally allowed to keep moving the goods
+     *      so in-transit shipments do not get stranded. The flag is
+     *      surfaced loudly in the UI (FlaggedBanner) so everyone sees it.
      *
-     *         Multiple auditors may flag the same batch; all flags are retained.
-     *
-     * @param batchId The batch to flag.
-     * @param reason  Free-text description of the concern (e.g. "Temperature excursion").
+     *      A batch can carry multiple flags from different auditors.
      */
     function flagBatch(
         bytes32 batchId,
@@ -496,11 +428,9 @@ contract FreshTrace is AccessControl {
     ) external onlyRole(AUDITOR_ROLE) {
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
 
-        // ── Input validation ──
         require(bytes(reason).length > 0,              "reason required");
         require(bytes(reason).length <= MAX_REASON_LEN, "reason too long");
 
-        // Mark the batch so the flagged state is visible via getHistory().
         batches[batchId].flagged = true;
 
         auditFlags[batchId].push(AuditFlag({
@@ -515,21 +445,13 @@ contract FreshTrace is AccessControl {
         emit BatchFlagged(batchId, msg.sender, reason);
     }
 
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // View functions (read-only; no gas cost when called off-chain)
-    // ─────────────────────────────────────────────────────────────────────────
-
     /**
-     * @notice Marks an existing audit flag as resolved once the concern is addressed.
-     * @dev    Access: AUDITOR_ROLE only.
+     * @notice Mark a flag as resolved once the concern has been addressed.
+     * @dev Access: AUDITOR_ROLE only.
      *
-     *         After resolution, batch.flagged is recomputed: if all flags are resolved
-     *         the batch is no longer considered flagged, removing the warning banner
-     *         from the consumer-facing trace page.
-     *
-     * @param batchId   The batch whose flag is being resolved.
-     * @param flagIndex Index into the auditFlags array for this batch.
+     *      After resolution we recompute batch.flagged: it stays true if
+     *      any other flag is still open, otherwise it drops to false and
+     *      the consumer-facing warning banner disappears.
      */
     function resolveFlag(bytes32 batchId, uint256 flagIndex) external onlyRole(AUDITOR_ROLE) {
         if (!batches[batchId].exists) revert BatchNotFound(batchId);
@@ -540,7 +462,7 @@ contract FreshTrace is AccessControl {
         auditFlags[batchId][flagIndex].resolvedBy = msg.sender;
         auditFlags[batchId][flagIndex].resolvedAt = block.timestamp;
 
-        // Recompute batch.flagged: stays true only if any unresolved flag remains.
+        // Stay flagged only if any flag is still open.
         bool anyUnresolved = false;
         for (uint256 i = 0; i < auditFlags[batchId].length; i++) {
             if (!auditFlags[batchId][i].resolved) { anyUnresolved = true; break; }
@@ -550,16 +472,13 @@ contract FreshTrace is AccessControl {
         emit FlagResolved(batchId, msg.sender, flagIndex);
     }
 
+
+    // View functions (read-only, no gas off-chain)
+
     /**
-     * @notice Returns the complete traceability record for a batch in a single call.
-     * @dev    Returns all three data types together to minimise RPC round-trips from
-     *         the front-end. Consumers, auditors, and logistics operators all use
-     *         this function to verify provenance and supply-chain history.
-     *
-     * @param  batchId The batch to query (must exist).
-     * @return batch       The Batch metadata struct.
-     * @return cps         The full ordered Checkpoint array (main-flow + add-ons).
-     * @return flags       All AuditFlag records raised on this batch.
+     * @notice Return the full traceability record for a batch in one call.
+     * @dev Bundling everything into a single tuple keeps the front end's
+     *      RPC count low. Consumers, auditors, and logistics all use this.
      */
     function getHistory(bytes32 batchId)
         external
@@ -571,18 +490,18 @@ contract FreshTrace is AccessControl {
     }
 
     /**
-     * @notice Returns all registered batch IDs so the Dashboard can enumerate batches.
-     * @dev    Returned in registration order. No pagination yet — acceptable for the
-     *         current pilot scale (Vietnam OCOP producers are limited in number).
+     * @notice Return every registered batchId for the Dashboard to enumerate.
+     * @dev Order: insertion order. No pagination yet, acceptable at our
+     *      pilot scale (OCOP producers are not that numerous).
      */
     function getBatchIds() external view returns (bytes32[] memory) {
         return batchIds;
     }
 
     /**
-     * @notice Returns the total number of registered batches.
-     * @dev    Useful for analytics and for checking whether enumeration is needed
-     *         before calling the more expensive getBatchIds().
+     * @notice Return the total number of registered batches.
+     * @dev Useful for the Dashboard counter and for deciding whether
+     *      to call the more expensive getBatchIds.
      */
     function getBatchCount() external view returns (uint256) {
         return batchIds.length;

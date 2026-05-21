@@ -1,6 +1,6 @@
 /**
- * Shared types between smart contract layer and frontend.
- * Generated from FreshTrace.sol — keep in sync with contract.
+ * Shared types between the smart contract layer and the frontend.
+ * Mirror of FreshTrace.sol, keep in sync if the contract changes.
  */
 
 export enum ActionType {

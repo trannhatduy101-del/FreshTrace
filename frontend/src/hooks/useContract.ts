@@ -22,7 +22,7 @@ export function useContract() {
     }
     let cancelled = false;
 
-    // Build signer asynchronously — ethers v6 returns a Promise
+    // Build signer asynchronously. Ethers v6 getSigner returns a Promise.
     (async () => {
       try {
         const provider = new BrowserProvider(walletProvider);

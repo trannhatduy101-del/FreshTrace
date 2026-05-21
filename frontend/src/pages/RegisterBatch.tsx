@@ -10,7 +10,7 @@ import { txLink } from "../config/chains";
 import { QuantityUnit } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 
-// Shared input className — referenced by every <input> in the form
+// Shared input className, referenced by every input in the form.
 const INPUT_CLASS =
   "w-full px-3 py-2 text-sm border border-gray-300 rounded-md " +
   "focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none";
@@ -26,7 +26,7 @@ export default function RegisterBatch() {
 
   const { t } = useI18n();
 
-  // Local form state — kept simple, no form library needed for 5 fields
+  // Local form state kept simple. No form library needed for five fields.
   const [productName, setProductName] = useState("");
   const [origin, setOrigin] = useState("");
   const [harvestDate, setHarvestDate] = useState("");
@@ -264,7 +264,7 @@ function CopyButton({ text }: { text: string | null }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard unavailable — fail silently
+      // Clipboard unavailable, fail silently.
     }
   }, [text]);
 

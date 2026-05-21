@@ -1,4 +1,4 @@
-# Derive paths from script location — works regardless of where the repo is cloned
+# Derive paths from the script location so this works no matter where the repo is cloned.
 $ProjectDir  = $PSScriptRoot
 $FrontendDir = Join-Path (Split-Path (Split-Path $PSScriptRoot)) "frontend"
 $FIXED_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
@@ -9,7 +9,7 @@ Write-Host "   FreshTrace Dev Setup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Step 1: Kill old node on port 8545 ─────────────────────────────────────
+# Step 1: kill any old Hardhat node still holding port 8545.
 Write-Host "[1/3] Killing old Hardhat node..." -ForegroundColor Yellow
 $pids = Get-NetTCPConnection -LocalPort 8545 -ErrorAction SilentlyContinue |
         Select-Object -ExpandProperty OwningProcess -ErrorAction SilentlyContinue |
@@ -22,7 +22,7 @@ if ($pids) {
     Write-Host "     No existing node on port 8545." -ForegroundColor DarkGray
 }
 
-# ── Step 2: Start fresh Hardhat node in a new window ───────────────────────
+# Step 2: start a fresh Hardhat node in a new window.
 Write-Host "[2/3] Starting fresh Hardhat node..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$ProjectDir'; npx hardhat node"
 
@@ -55,7 +55,7 @@ if (-not $ready) {
 }
 Write-Host "     Node ready!" -ForegroundColor Green
 
-# ── Step 3: Deploy + grant roles (nonce=0 => fixed address every time) ──────
+# Step 3: deploy the contract and grant roles. nonce=0 always gives the same address.
 Write-Host "[3/3] Deploying contract, granting roles, funding wallet..." -ForegroundColor Yellow
 Set-Location $ProjectDir
 npx hardhat run scripts/setup.ts --network localhost

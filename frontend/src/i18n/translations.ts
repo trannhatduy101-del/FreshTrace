@@ -1,10 +1,10 @@
 // Lightweight i18n dictionary. Add new keys as needed.
-// Single source of truth — every UI string the user sees should live here.
+// Single source of truth: every UI string the user sees lives here.
 
 export type Locale = "en" | "vi";
 
 export const translations = {
-  // ─── Navigation / Layout ─────────────────────────────────────────
+  // Navigation and layout
   nav: {
     dashboard:    { en: "Dashboard",     vi: "Bảng điều khiển" },
     register:     { en: "Register",      vi: "Đăng ký" },
@@ -13,7 +13,7 @@ export const translations = {
     trace:        { en: "Trace",         vi: "Tra cứu" },
   },
 
-  // ─── Common buttons / status ─────────────────────────────────────
+  // Common buttons and status text
   common: {
     connect:      { en: "Connect Wallet",      vi: "Kết nối ví" },
     disconnect:   { en: "Disconnect",          vi: "Ngắt kết nối" },
@@ -35,7 +35,7 @@ export const translations = {
     on:           { en: "on",                  vi: "vào" },
   },
 
-  // ─── Dashboard ───────────────────────────────────────────────────
+  // Dashboard
   dashboard: {
     title:          { en: "Dashboard",                                 vi: "Bảng điều khiển" },
     batchesCount:   { en: "batches registered",                        vi: "lô đã đăng ký" },
@@ -55,7 +55,7 @@ export const translations = {
     results:        { en: "results",                                   vi: "kết quả" },
   },
 
-  // ─── Register Batch ──────────────────────────────────────────────
+  // Register Batch page
   register: {
     title:          { en: "Register Batch",                            vi: "Đăng ký lô" },
     subtitle:       { en: "Producer-only · Records the harvested batch and generates a QR for traceability.", vi: "Chỉ dành cho Producer · Ghi nhận lô đã thu hoạch và tạo QR truy xuất nguồn gốc." },
@@ -86,7 +86,7 @@ export const translations = {
     producerOnlyMsg: { en: "Only Producer role wallets can register a new batch.", vi: "Chỉ ví có vai trò Producer mới có thể đăng ký lô mới." },
   },
 
-  // ─── Log Checkpoint ──────────────────────────────────────────────
+  // Log Checkpoint page
   checkpoint: {
     title:          { en: "Log Checkpoint",                            vi: "Cập nhật điểm kiểm" },
     subtitle:       { en: "Append a new event to a batch's supply chain history.", vi: "Ghi sự kiện mới vào lịch sử chuỗi cung ứng của lô." },
@@ -113,7 +113,7 @@ export const translations = {
     accessDeniedMsg: { en: "Only Logistics and Retailer roles can log checkpoints. Connect an authorized wallet.", vi: "Chỉ vai trò Logistics và Retailer mới có thể ghi điểm kiểm. Kết nối ví được uỷ quyền." },
   },
 
-  // ─── Public Trace ────────────────────────────────────────────────
+  // Public Trace page
   trace: {
     title:          { en: "Verify Product Origin",                     vi: "Xác minh xuất xứ sản phẩm" },
     subtitle:       { en: "Scan a QR or paste a Batch ID to view its full supply-chain history.", vi: "Quét QR hoặc dán Mã lô để xem toàn bộ lịch sử chuỗi cung ứng." },
@@ -135,7 +135,7 @@ export const translations = {
     shareTitle:     { en: "FreshTrace — verify product origin",        vi: "FreshTrace — kiểm tra xuất xứ" },
   },
 
-  // ─── Audit Page ──────────────────────────────────────────────────
+  // Audit page
   audit: {
     title:          { en: "Audit Batches",                             vi: "Kiểm toán lô" },
     subtitle:       { en: "Auditor-only · Review supply chain history and flag suspicious batches.", vi: "Chỉ Auditor · Xem lịch sử chuỗi cung ứng và gắn cờ lô đáng ngờ." },
@@ -159,7 +159,7 @@ export const translations = {
     auditorOnlyMsg: { en: "Only AUDITOR_ROLE wallets can access this page.", vi: "Chỉ ví có vai trò AUDITOR mới truy cập được trang này." },
     noBatches:      { en: "No batches registered yet.",                vi: "Chưa có lô nào được đăng ký." },
   },
-  // ─── Error messages (parsed from raw ethers/RPC errors) ─────────
+  // Error messages parsed from raw ethers and RPC errors
   errors: {
     userRejected:       { en: "You cancelled the transaction in MetaMask.",
                           vi: "Bạn đã hủy giao dịch trong MetaMask." },

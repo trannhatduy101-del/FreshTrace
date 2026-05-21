@@ -6,7 +6,7 @@ const MAX_ITEMS = 5;
 export interface RecentBatch {
   id: string;      // bytes32 hex
   name: string;    // human-readable product name for display
-  viewedAt: number; // unix ms — used to sort newest-first
+  viewedAt: number; // unix ms, used to sort newest first
 }
 
 // Reads the stored list, validating shape so a corrupted entry doesn't crash.
@@ -27,8 +27,8 @@ function loadFromStorage(): RecentBatch[] {
 
 /**
  * Tracks recently-viewed batches in localStorage so users don't need to
- * re-paste the 66-character batch ID every time. Kept on-device only —
- * no server storage, no analytics — purely a UX convenience.
+ * re-paste the 66-character batch ID every time. Stays on the device:
+ * no server storage, no analytics, purely a UX convenience.
  */
 export function useRecentBatches() {
   const [recent, setRecent] = useState<RecentBatch[]>(loadFromStorage);

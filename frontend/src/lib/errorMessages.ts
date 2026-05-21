@@ -18,7 +18,7 @@ export type ErrorKind =
 
 export interface ClassifiedError {
   kind: ErrorKind;
-  /** Original message for debugging — shown in the small grey text. */
+  /** Original message for debugging, shown in the small grey text below. */
   raw: string;
   /** Optional structured args extracted from custom errors. */
   args?: string;
@@ -73,7 +73,7 @@ export function classifyError(err: unknown): ClassifiedError {
   if (raw.includes("Flag already resolved")) {
     return { kind: "alreadyResolved", raw };
   }
-  // Any other revert reason from a require() — extract the quoted string if present.
+  // Any other revert reason from a require(). Extract the quoted string if present.
   const reasonMatch = raw.match(/reverted with reason string '([^']+)'/) ||
                        raw.match(/reverted: (.+)/);
   if (reasonMatch) {
@@ -90,12 +90,12 @@ export function classifyError(err: unknown): ClassifiedError {
 export function friendlyError(err: unknown, t: (k: string) => string): { message: string; raw: string } {
   const c = classifyError(err);
   // For validationFailed we want to show the actual revert reason,
-  // not a generic translation — the reason string itself is descriptive.
+  // not a generic translation. The reason string itself is descriptive enough.
   if (c.kind === "validationFailed" && c.args) {
     return { message: `${t("errors.validationFailed")}: ${c.args}`, raw: c.raw };
   }
   if (c.kind === "unknown") {
-    // No translation — return the raw text so dev/user can see what happened.
+    // No translation, return the raw text so the user (or dev) can see what happened.
     return { message: c.raw, raw: c.raw };
   }
   return { message: t(`errors.${c.kind}`), raw: c.raw };

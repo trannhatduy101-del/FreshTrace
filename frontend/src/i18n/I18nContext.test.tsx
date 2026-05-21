@@ -31,7 +31,7 @@ describe("I18nContext", () => {
     // If a key exists but only in one locale, switching should still return something.
     const { result } = renderHook(() => useI18n(), { wrapper });
     act(() => result.current.setLocale("vi"));
-    // common.copy exists in both — sanity
+    // common.copy exists in both locales, sanity check
     expect(result.current.t("common.copy")).toBe("Sao chép");
   });
 

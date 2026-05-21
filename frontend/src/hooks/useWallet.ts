@@ -1,4 +1,5 @@
-// Wallet hooks — thin wrappers around @web3modal/ethers.
+// Thin wrappers around @web3modal/ethers so the rest of the app can
+// keep using our own names.
 // Using Web3Modal (AppKit) gives us MetaMask browser-extension support,
 // WalletConnect QR for mobile wallets, EIP-6963 multi-injected detection,
 // and a unified UI for connect/disconnect/network-switch flows.
@@ -21,7 +22,7 @@ export function useWalletAccount() {
 }
 
 export function useWalletProvider() {
-  // walletProvider is an EIP-1193 provider — works directly with ethers.BrowserProvider
+  // walletProvider is an EIP-1193 provider that plugs straight into ethers.BrowserProvider.
   return useWeb3ModalProvider();
 }
 

@@ -12,5 +12,5 @@ export const CONTRACT_ABI = contractArtifact.abi;
 // Runtime sanity check during dev: surface misconfiguration immediately
 if (!CONTRACT_ADDRESS && import.meta.env.DEV) {
   // eslint-disable-next-line no-console
-  console.warn("VITE_CONTRACT_ADDRESS is not set — contract calls will fail.");
+  console.warn("VITE_CONTRACT_ADDRESS is not set; contract calls will fail.");
 }

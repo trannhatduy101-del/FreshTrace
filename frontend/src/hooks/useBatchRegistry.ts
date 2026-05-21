@@ -90,7 +90,7 @@ export function useBatchRegistry(contract: Contract | null) {
         const msg =
           e instanceof Error
             ? e.message
-            : "Registration failed — see console for details";
+            : "Registration failed, see console for details";
         setState({ ...INITIAL, error: msg });
       }
     },

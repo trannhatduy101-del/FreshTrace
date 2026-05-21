@@ -14,13 +14,13 @@ export default function ShareButton({ url, title }: ShareButtonProps) {
 
   const onClick = useCallback(async () => {
     const shareTitle = title ?? t("trace.shareTitle");
-    // Prefer the OS share sheet on mobile — better UX than copy-then-paste.
+    // Prefer the OS share sheet on mobile, much nicer than copy-then-paste.
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: shareTitle, url });
         return;
       } catch {
-        // User cancelled — silently fall through to clipboard fallback.
+        // User cancelled the sheet, fall through to the clipboard fallback.
       }
     }
     try {

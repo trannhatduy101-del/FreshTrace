@@ -13,7 +13,7 @@ const CHAIN_IDS: Record<string, number> = {
 async function main() {
   const [deployer] = await ethers.getSigners();
   // Wallet to grant participant roles to. Defaults to the deployer so a fresh
-  // clone "just works" — set WALLET_ADDRESS in .env to grant a different wallet.
+  // clone "just works". Set WALLET_ADDRESS in .env to grant a different wallet.
   const TARGET = process.env.WALLET_ADDRESS || deployer.address;
 
   console.log("Deploying with:", deployer.address);
@@ -30,7 +30,7 @@ async function main() {
   for (const name of roles) {
     const hash = await (contract as any)[name]();
     await contract.grantRole(hash, TARGET);
-    // Also grant to deployer if different — convenient for testing
+    // Also grant to the deployer if it differs, convenient for testing.
     if (TARGET.toLowerCase() !== deployer.address.toLowerCase()) {
       await contract.grantRole(hash, deployer.address);
     }
@@ -43,7 +43,7 @@ async function main() {
     JSON.stringify({ address, network: network.name, chainId }, null, 2)
   );
 
-  // Auto-update frontend .env — works from any clone location
+  // Auto-update the frontend .env. Works from any clone location.
   const frontendEnvPath = path.resolve(__dirname, "../../../frontend/.env");
   if (fs.existsSync(frontendEnvPath)) {
     let envContent = fs.readFileSync(frontendEnvPath, "utf8");
@@ -54,7 +54,7 @@ async function main() {
     fs.writeFileSync(frontendEnvPath, envContent);
     console.log("Frontend .env updated:", address);
   } else {
-    console.log("Frontend .env not found — set VITE_CONTRACT_ADDRESS manually:", address);
+    console.log("Frontend .env not found; set VITE_CONTRACT_ADDRESS manually:", address);
   }
 }
 

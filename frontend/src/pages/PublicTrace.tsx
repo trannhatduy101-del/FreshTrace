@@ -68,7 +68,7 @@ export default function PublicTrace() {
         </p>
       </header>
 
-      {/* Search bar — always visible so users can switch batches */}
+      {/* Search bar stays visible so users can swap to another batch easily. */}
       <form onSubmit={onSearch} className="flex gap-2 max-w-2xl mx-auto">
         <input
           type="text"
@@ -85,7 +85,7 @@ export default function PublicTrace() {
         </button>
       </form>
 
-      {/* Initial empty state — show recent history if any */}
+      {/* Initial empty state. Show recent history if there is any. */}
       {!paramBatchId && (
         <div className="space-y-4">
           <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
@@ -125,7 +125,7 @@ export default function PublicTrace() {
         </div>
       )}
 
-      {/* Invalid format hint — shown while user is still editing */}
+      {/* Format hint while the user is mid-typing. */}
       {paramBatchId && !isValidId && (
         <div className="rounded-md bg-yellow-50 border border-yellow-200 p-6 text-center">
           <p className="text-yellow-800 font-medium">{t("trace.invalidFormat")}</p>
@@ -162,10 +162,10 @@ export default function PublicTrace() {
             />
           )}
 
-          {/* Batch info card — hero panel for consumer */}
+          {/* Batch info card. Hero panel for the consumer. */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="grid grid-cols-1 md:grid-cols-2">
-              {/* Product image — full-bleed on mobile, left half on desktop */}
+              {/* Product image. Full bleed on mobile, left half on desktop. */}
               <div className="aspect-square md:aspect-auto bg-gradient-to-br from-green-50 to-emerald-100">
                 {history.imageUrls.batchImage ? (
                   <img
@@ -214,7 +214,7 @@ export default function PublicTrace() {
             </div>
           </div>
 
-          {/* Direct-sale message — registered but never handed off */}
+          {/* Direct-sale message: registered but never handed off to logistics. */}
           {history.checkpoints.length === 1 && (
             <div className="rounded-md bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
               {t("trace.directSale")}
@@ -255,7 +255,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Address row — truncates middle and provides explorer link + copy button
+// Address row. Truncates the middle of the address and offers an explorer link plus a copy button.
 function AddressRow({ label, address }: { label: string; address: string }) {
   const [copied, setCopied] = useState(false);
   const truncated = `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -266,7 +266,7 @@ function AddressRow({ label, address }: { label: string; address: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard API may be unavailable in some browsers — fail silently
+      // Clipboard API may be unavailable in some browsers; fail silently.
     }
   };
 

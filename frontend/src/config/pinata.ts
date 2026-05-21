@@ -1,6 +1,6 @@
 import { PinataSDK } from "pinata-web3";
 
-// Pinata JWT loaded from env — exposes upload capability to the browser.
+// Pinata JWT loaded from env, exposes upload capability to the browser.
 // SECURITY NOTE: this JWT is visible to users. In production, use a scoped
 // upload-only key with short TTL or proxy uploads through a tiny serverless fn.
 const jwt = (import.meta.env.VITE_PINATA_JWT as string) || "";

@@ -1,7 +1,7 @@
 import { useI18n } from "../i18n/I18nContext";
 
 // Single-pill toggle showing both languages so users see the alternative
-// at a glance — clicking the inactive side switches locale.
+// at a glance. Clicking the inactive side switches the locale.
 export default function LanguageToggle() {
   const { locale, setLocale } = useI18n();
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRecentBatches } from "./useRecentBatches";
 
-describe("useRecentBatches — edge cases", () => {
+describe("useRecentBatches - edge cases", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -34,7 +34,7 @@ describe("useRecentBatches — edge cases", () => {
   });
 
   it("handles localStorage.setItem throwing (quota exceeded)", () => {
-    // Simulate quota exceeded — first call (load) returns null, second (save) throws.
+    // Simulate quota exceeded: first call (load) returns null, second (save) throws.
     const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("QuotaExceededError");
     });

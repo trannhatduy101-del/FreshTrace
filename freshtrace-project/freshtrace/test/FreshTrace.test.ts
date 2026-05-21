@@ -12,7 +12,7 @@ describe("FreshTrace", function () {
   let auditor: HardhatEthersSigner;
   let unauthorized: HardhatEthersSigner;
 
-  // Role hashes — must match contract constants
+  // Role hashes, must match the contract constants
   let PRODUCER_ROLE: string;
   let LOGISTICS_ROLE: string;
   let RETAILER_ROLE: string;
@@ -69,7 +69,7 @@ describe("FreshTrace", function () {
     await freshTrace.grantRole(AUDITOR_ROLE, auditor.address);
   });
 
-  // ── Deployment ───────────────────────────────────────────────────
+  // Deployment
 
   describe("Deployment", function () {
     it("Should set deployer as DEFAULT_ADMIN_ROLE", async function () {
@@ -89,7 +89,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── registerBatch ────────────────────────────────────────────────
+  // registerBatch
 
   describe("registerBatch", function () {
     it("Should register batch and auto-create HARVESTED checkpoint", async function () {
@@ -150,7 +150,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── logCheckpoint ────────────────────────────────────────────────
+  // logCheckpoint
 
   describe("logCheckpoint", function () {
     let batchId: string;
@@ -169,7 +169,7 @@ describe("FreshTrace", function () {
       expect(cps[1].action).to.equal(1); // PROCESSED
     });
 
-    it("Should log SHIPPED after PROCESSED (skip PACKED — forward skip allowed)", async function () {
+    it("Should log SHIPPED after PROCESSED (skipping PACKED, forward skip is allowed)", async function () {
       await freshTrace.connect(logistics).logCheckpoint(batchId, 1, "Can Tho Hub", "");
       await freshTrace.connect(logistics).logCheckpoint(batchId, 3, "HCMC Warehouse", "");
 
@@ -255,7 +255,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── flagBatch ────────────────────────────────────────────────────
+  // flagBatch
 
   describe("flagBatch", function () {
     let batchId: string;
@@ -284,7 +284,7 @@ describe("FreshTrace", function () {
     });
 
     it("Should allow logCheckpoint after flagBatch", async function () {
-      // Flag first, then continue supply chain — warning-only design
+      // Flagging is warning-only, the supply chain keeps moving.
       await freshTrace
         .connect(auditor)
         .flagBatch(batchId, "Under investigation");
@@ -307,7 +307,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── getHistory ───────────────────────────────────────────────────
+  // getHistory
 
   describe("getHistory", function () {
     it("Should return complete Batch + Checkpoint[] + AuditFlag[]", async function () {
@@ -369,7 +369,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── getBatchIds ──────────────────────────────────────────────────
+  // getBatchIds
 
   describe("getBatchIds", function () {
     it("Should return all batch IDs", async function () {
@@ -405,7 +405,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── getBatchCount ────────────────────────────────────────────────
+  // getBatchCount
 
   describe("getBatchCount", function () {
     it("Should return 0 before any registration", async function () {
@@ -423,9 +423,9 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── Edge Cases ───────────────────────────────────────────────────
+  // Edge cases
 
-  describe("Edge Cases — getHistory on missing batch", function () {
+  describe("Edge Cases -getHistory on missing batch", function () {
     it("Should revert BatchNotFound for non-existent batchId", async function () {
       const fake = ethers.keccak256(ethers.toUtf8Bytes("ghost-batch"));
       await expect(freshTrace.getHistory(fake))
@@ -434,7 +434,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  describe("Edge Cases — flagBatch", function () {
+  describe("Edge Cases -flagBatch", function () {
     it("Should revert BatchNotFound when flagging non-existent batch", async function () {
       const fake = ethers.keccak256(ethers.toUtf8Bytes("ghost-batch"));
       await expect(freshTrace.connect(auditor).flagBatch(fake, "Ghost flag"))
@@ -478,7 +478,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  describe("Edge Cases — logCheckpoint anomalies", function () {
+  describe("Edge Cases -logCheckpoint anomalies", function () {
     let batchId: string;
 
     beforeEach(async function () {
@@ -486,7 +486,7 @@ describe("FreshTrace", function () {
     });
 
     it("Should revert AnomalyDetected when logging HARVESTED via logCheckpoint", async function () {
-      // HARVESTED(0) <= HARVESTED(0) — backward-or-equal move
+      // HARVESTED(0) <= HARVESTED(0), counts as backward-or-equal
       await expect(
         freshTrace.connect(logistics).logCheckpoint(batchId, 0, "Farm", "")
       )
@@ -535,7 +535,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  describe("Edge Cases — data integrity", function () {
+  describe("Edge Cases -data integrity", function () {
     it("Should store ocop=false correctly", async function () {
       const tx = await freshTrace
         .connect(producer)
@@ -595,7 +595,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── logAddon ─────────────────────────────────────────────────────
+  // logAddon
 
   describe("logAddon", function () {
     let batchId: string;
@@ -660,7 +660,7 @@ describe("FreshTrace", function () {
     it("Add-on does not affect main flow order validation", async function () {
       // Log add-on, then main checkpoint should still validate against last main action
       await freshTrace.connect(logistics).logAddon(batchId, "Cold Storage", "Warehouse", "");
-      // Can still go PROCESSED (1) — add-on at index 1 has action=HARVESTED(0) but addonLabel set
+      // Can still go PROCESSED (1): the add-on at index 1 has action=HARVESTED(0) but addonLabel set
       await freshTrace.connect(logistics).logCheckpoint(batchId, 1, "Factory", "");
 
       const [, cps] = await freshTrace.getHistory(batchId);
@@ -670,7 +670,7 @@ describe("FreshTrace", function () {
     });
 
     it("Add-on between main steps cannot allow backward main-flow step", async function () {
-      // SHIPPED(3) → add-on → PROCESSED(1) must still revert
+      // SHIPPED(3) -> add-on -> PROCESSED(1) must still revert
       await freshTrace.connect(logistics).logCheckpoint(batchId, 3, "Port", "");
       await freshTrace.connect(logistics).logAddon(batchId, "Customs Check", "Port", "");
       await expect(
@@ -709,7 +709,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── resolveFlag ──────────────────────────────────────────────────
+  // resolveFlag
 
   describe("resolveFlag", function () {
     let batchId: string;
@@ -778,7 +778,7 @@ describe("FreshTrace", function () {
     });
   });
 
-  // ── Input validation ─────────────────────────────────────────────
+  // Input validation
 
   describe("Input validation", function () {
     const validDate = () => Math.floor(Date.now() / 1000) - 86400;

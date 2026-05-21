@@ -89,7 +89,7 @@ export default function Dashboard() {
   // Reset to page 1 when search changes
   const handleSearch = (q: string) => { setSearch(q); setPage(1); };
 
-  // Gate the page on wallet connection — dashboard is for connected roles
+  // Gate the page on wallet connection. The dashboard is for connected roles only.
   if (!isConnected) {
     return (
       <div className="text-center py-16">
@@ -226,7 +226,7 @@ export default function Dashboard() {
   );
 }
 
-// Single card component — extracted for readability and React keying
+// Single card component, extracted for readability and stable React keys.
 function BatchCardItem({
   id,
   batch,
@@ -271,7 +271,7 @@ function BatchCardItem({
           <h3 className="font-semibold text-gray-900 truncate">
             {batch.productName}
           </h3>
-          {/* Status badges — flagged takes precedence over active */}
+          {/* Status badge. Flagged takes precedence over Active. */}
           {batch.flagged ? (
             <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
               {t("dashboard.flagged")}

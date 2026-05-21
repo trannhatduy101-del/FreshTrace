@@ -38,7 +38,7 @@ describe("ErrorMessage", () => {
 
   it("shows extracted revert reason for validation errors", () => {
     renderWithI18n({ error: `reverted with reason string 'origin required'` });
-    // Both the friendly line and the raw line contain the reason — both expected.
+    // Both the friendly line and the raw line contain the reason. Expected.
     const matches = screen.getAllByText(/origin required/);
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Validation failed: origin required/)).toBeInTheDocument();

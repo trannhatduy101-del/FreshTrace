@@ -30,7 +30,7 @@ async function main() {
       await freshTrace.grantRole(roleHash as string, role.address);
       console.log(`Granted ${role.name} to ${role.address}`);
     } else {
-      console.log(`Skipping ${role.name} — address not set in .env`);
+      console.log(`Skipping ${role.name}: address not set in .env`);
     }
   }
 

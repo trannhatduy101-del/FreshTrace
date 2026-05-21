@@ -140,7 +140,7 @@ export default function AuditBatch() {
   );
 }
 
-// ── Per-batch accordion row ────────────────────────────────────────────────
+// Per-batch accordion row
 
 function BatchAuditRow({
   row,
@@ -191,7 +191,7 @@ function BatchAuditRow({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      {/* Collapsed header — always visible */}
+      {/* Collapsed header, always visible. */}
       <button
         type="button"
         onClick={onToggle}

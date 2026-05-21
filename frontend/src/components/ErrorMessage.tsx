@@ -6,7 +6,7 @@ interface ErrorMessageProps {
   error: string | null;
   /** Optional className to control sizing/spacing in the parent. */
   className?: string;
-  /** Compact variant — single line, no raw details. */
+  /** Compact variant: single line, no raw details. */
   compact?: boolean;
 }
 

@@ -36,7 +36,7 @@ export default function AuditTimeline({
         {checkpoints.map((cp, i) => (
           <li key={i} className="relative pl-10">
             {cp.addonLabel ? (
-              /* Add-on checkpoint — dashed border, gray dot */
+              /* Add-on checkpoint: dashed border, gray dot. */
               <>
                 <span className="absolute left-0 top-1 w-6 h-6 rounded-full bg-gray-400 ring-4 ring-white flex items-center justify-center text-white text-xs">
                   +
@@ -60,7 +60,7 @@ export default function AuditTimeline({
                 </div>
               </>
             ) : (
-              /* Main flow checkpoint — coloured dot */
+              /* Main-flow checkpoint with a coloured dot. */
               <>
                 <span
                   className={`absolute left-0 top-1 w-6 h-6 rounded-full ${ACTION_COLORS[cp.action]} ring-4 ring-white flex items-center justify-center text-white text-xs font-bold`}
@@ -102,7 +102,7 @@ export default function AuditTimeline({
         ))}
       </ol>
 
-      {/* Modal lightbox — click backdrop or X to close */}
+      {/* Modal lightbox. Click backdrop or X to close. */}
       {lightboxUrl && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-fadeIn"
