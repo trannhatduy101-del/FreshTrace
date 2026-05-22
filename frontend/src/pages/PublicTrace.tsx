@@ -7,6 +7,7 @@ import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
 import QRCodeDisplay from "../components/QRCodeDisplay";
 import ShareButton from "../components/ShareButton";
+import ResilientImage from "../components/ResilientImage";
 import { addressLink } from "../config/chains";
 import { useI18n } from "../i18n/I18nContext";
 import { useRecentBatches } from "../hooks/useRecentBatches";
@@ -167,9 +168,9 @@ export default function PublicTrace() {
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Product image. Full bleed on mobile, left half on desktop. */}
               <div className="aspect-square md:aspect-auto bg-gradient-to-br from-green-50 to-emerald-100">
-                {history.imageUrls.batchImage ? (
-                  <img
-                    src={history.imageUrls.batchImage}
+                {history.batch.ipfsHash ? (
+                  <ResilientImage
+                    cid={history.batch.ipfsHash}
                     alt={history.batch.productName}
                     className="w-full h-full object-cover"
                   />

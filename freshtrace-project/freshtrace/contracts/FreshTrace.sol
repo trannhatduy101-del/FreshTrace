@@ -491,11 +491,41 @@ contract FreshTrace is AccessControl {
 
     /**
      * @notice Return every registered batchId for the Dashboard to enumerate.
-     * @dev Order: insertion order. No pagination yet, acceptable at our
-     *      pilot scale (OCOP producers are not that numerous).
+     * @dev Order: insertion order. Returns the entire array, so prefer
+     *      getBatchIdsPaginated once the batch count grows past a few
+     *      hundred to keep the RPC response cheap.
      */
     function getBatchIds() external view returns (bytes32[] memory) {
         return batchIds;
+    }
+
+    /**
+     * @notice Paginated slice of batchIds for the Dashboard.
+     * @dev Use this in production. The unpaginated getBatchIds is kept
+     *      for backward compatibility with simple integrations.
+     *
+     *      Returns batchIds[offset : offset+limit]. If offset is past the
+     *      end, returns an empty array (rather than reverting) so the UI
+     *      can detect "no more pages" naturally.
+     *
+     * @param offset Starting index, zero-based, in insertion order.
+     * @param limit  Maximum number of ids to return in this call.
+     */
+    function getBatchIdsPaginated(uint256 offset, uint256 limit)
+        external
+        view
+        returns (bytes32[] memory page)
+    {
+        uint256 total = batchIds.length;
+        if (offset >= total || limit == 0) {
+            return new bytes32[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) end = total;
+        page = new bytes32[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = batchIds[i];
+        }
     }
 
     /**

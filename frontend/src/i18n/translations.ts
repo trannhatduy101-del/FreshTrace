@@ -63,6 +63,8 @@ export const translations = {
     events:         { en: "events",                                    vi: "sự kiện" },
     ocopCertified:  { en: "OCOP Certified",                            vi: "Chứng nhận OCOP" },
     results:        { en: "results",                                   vi: "kết quả" },
+    loadMore:       { en: "Load more",                                 vi: "Tải thêm" },
+    searchHint:     { en: "Search filters loaded batches. Click Load more to search older ones.", vi: "Tìm kiếm chỉ áp dụng cho các lô đã tải. Bấm Tải thêm để tìm các lô cũ hơn." },
   },
 
   // Register Batch page

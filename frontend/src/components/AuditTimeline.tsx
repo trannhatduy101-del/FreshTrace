@@ -6,20 +6,25 @@ import {
   ActionType,
 } from "../types";
 import { addressLink } from "../config/chains";
+import ResilientImage from "./ResilientImage";
 
 interface AuditTimelineProps {
   checkpoints: Checkpoint[];
-  imageUrls: (string | null)[];
+  /** Kept for backward compatibility; ResilientImage now derives URLs
+   *  from the checkpoint's ipfsHash directly so it can fall back across
+   *  gateways. The prop is unused but stays for any caller that still
+   *  passes it. */
+  imageUrls?: (string | null)[];
 }
 
 // Vertical timeline rendered top-to-bottom in chronological order (oldest first).
 // First node (HARVESTED) gets a "Registered by Producer" subtitle.
 export default function AuditTimeline({
   checkpoints,
-  imageUrls,
 }: AuditTimelineProps) {
-  // Lightbox state for expanding image thumbnails
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  // Lightbox holds the CID of the checkpoint whose image is enlarged,
+  // not a URL, so the modal also benefits from gateway fallback.
+  const [lightboxCid, setLightboxCid] = useState<string | null>(null);
 
   if (checkpoints.length === 0) {
     return (
@@ -88,9 +93,9 @@ export default function AuditTimeline({
                     </a>
                   </div>
 
-              {imageUrls[i] && (
-                <button type="button" onClick={() => setLightboxUrl(imageUrls[i])} className="mt-3 block">
-                  <img src={imageUrls[i]!} alt={`Evidence`}
+              {cp.ipfsHash && (
+                <button type="button" onClick={() => setLightboxCid(cp.ipfsHash)} className="mt-3 block">
+                  <ResilientImage cid={cp.ipfsHash} alt="Evidence"
                     className="h-20 w-20 object-cover rounded border border-gray-200 hover:opacity-90 transition-opacity"
                     loading="lazy" />
                 </button>
@@ -103,13 +108,13 @@ export default function AuditTimeline({
       </ol>
 
       {/* Modal lightbox. Click backdrop or X to close. */}
-      {lightboxUrl && (
+      {lightboxCid && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-fadeIn"
-          onClick={() => setLightboxUrl(null)}
+          onClick={() => setLightboxCid(null)}
         >
-          <img
-            src={lightboxUrl}
+          <ResilientImage
+            cid={lightboxCid}
             alt="Enlarged evidence"
             className="max-w-full max-h-full object-contain rounded"
             onClick={(e) => e.stopPropagation()}
@@ -117,7 +122,7 @@ export default function AuditTimeline({
           <button
             type="button"
             className="absolute top-4 right-4 text-white text-3xl leading-none"
-            onClick={() => setLightboxUrl(null)}
+            onClick={() => setLightboxCid(null)}
             aria-label="Close"
           >
             ×

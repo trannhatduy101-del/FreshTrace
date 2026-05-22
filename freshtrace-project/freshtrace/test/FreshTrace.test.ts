@@ -405,6 +405,67 @@ describe("FreshTrace", function () {
     });
   });
 
+  // getBatchIdsPaginated
+
+  describe("getBatchIdsPaginated", function () {
+    it("Returns empty when contract has no batches", async function () {
+      const Factory = await ethers.getContractFactory("FreshTrace");
+      const fresh = await Factory.deploy();
+      await fresh.waitForDeployment();
+      const page = await fresh.getBatchIdsPaginated(0, 10);
+      expect(page.length).to.equal(0);
+    });
+
+    it("Returns the first N when offset=0 and N < total", async function () {
+      for (let i = 0; i < 5; i++) {
+        await freshTrace.connect(producer).registerBatch(
+          `Product${i}`, "Origin", Math.floor(Date.now()/1000) - 86400,
+          100, 0, false, `Qm${i}`
+        );
+      }
+      const page = await freshTrace.getBatchIdsPaginated(0, 3);
+      expect(page.length).to.equal(3);
+    });
+
+    it("Returns the remaining slice when offset > 0", async function () {
+      for (let i = 0; i < 5; i++) {
+        await freshTrace.connect(producer).registerBatch(
+          `Product${i}`, "Origin", Math.floor(Date.now()/1000) - 86400,
+          100, 0, false, `Qm${i}`
+        );
+      }
+      const all = await freshTrace.getBatchIds();
+      const page = await freshTrace.getBatchIdsPaginated(2, 2);
+      expect(page.length).to.equal(2);
+      expect(page[0]).to.equal(all[2]);
+      expect(page[1]).to.equal(all[3]);
+    });
+
+    it("Clamps the last page when limit overshoots total", async function () {
+      for (let i = 0; i < 3; i++) {
+        await freshTrace.connect(producer).registerBatch(
+          `Product${i}`, "Origin", Math.floor(Date.now()/1000) - 86400,
+          100, 0, false, `Qm${i}`
+        );
+      }
+      // Request 10 starting at offset 1 but only 2 are left.
+      const page = await freshTrace.getBatchIdsPaginated(1, 10);
+      expect(page.length).to.equal(2);
+    });
+
+    it("Returns empty when offset is beyond the end (no revert)", async function () {
+      await registerTestBatch();
+      const page = await freshTrace.getBatchIdsPaginated(99, 10);
+      expect(page.length).to.equal(0);
+    });
+
+    it("Returns empty when limit is zero", async function () {
+      await registerTestBatch();
+      const page = await freshTrace.getBatchIdsPaginated(0, 0);
+      expect(page.length).to.equal(0);
+    });
+  });
+
   // getBatchCount
 
   describe("getBatchCount", function () {

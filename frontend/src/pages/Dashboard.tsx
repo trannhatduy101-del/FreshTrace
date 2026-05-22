@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWalletAccount } from "../hooks/useWallet";
 import { useContract } from "../hooks/useContract";
-import { ipfsUrl } from "../config/pinata";
 import { ActionType, Batch, QuantityUnit } from "../types";
 import { useI18n } from "../i18n/I18nContext";
+import ResilientImage from "../components/ResilientImage";
 
 // Combined card data: batch + its derived status flags
 interface BatchCard {
@@ -13,34 +13,44 @@ interface BatchCard {
   checkpointCount: number;
 }
 
+// Page size for the contract pagination call. Small enough that any one
+// RPC response is cheap; large enough that scrolling rarely needs more.
 const PAGE_SIZE = 12;
 
-// Dashboard: scans all registered batches and renders a responsive card grid.
+// Dashboard: paginated card grid backed by the contract's
+// getBatchIdsPaginated. We never fetch the entire list at once so the
+// page scales gracefully even when the chain holds thousands of batches.
 export default function Dashboard() {
   const { contract, isConnected } = useContract();
   const { address } = useWalletAccount();
   const { t } = useI18n();
   const [cards, setCards] = useState<BatchCard[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    if (!contract) return;
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
+  // Fetch a page of batchIds via the paginated contract function, then
+  // fan out one getHistory call per id in parallel. Appends to the
+  // existing cards state for the Load More flow.
+  const fetchPage = useCallback(
+    async (offset: number, isInitial: boolean) => {
+      if (!contract) return;
+      if (isInitial) setLoading(true);
+      else setLoadingMore(true);
       setError(null);
       try {
-        // Pull all batch IDs, then fan out parallel getHistory calls
-        const ids: string[] = await contract.getBatchIds();
+        const total: bigint = await contract.getBatchCount();
+        const totalNumber = Number(total);
+        setTotalCount(totalNumber);
+
+        const ids: string[] = await contract.getBatchIdsPaginated(offset, PAGE_SIZE);
         const histories = await Promise.all(
           ids.map((id) => contract.getHistory(id))
         );
 
-        const built: BatchCard[] = ids.map((id, i) => {
+        const newCards: BatchCard[] = ids.map((id, i) => {
           const [rawBatch, rawCheckpoints] = histories[i];
           return {
             id,
@@ -60,37 +70,39 @@ export default function Dashboard() {
           };
         });
 
-        if (!cancelled) setCards(built);
+        setCards((prev) => (isInitial ? newCards : [...prev, ...newCards]));
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load batches");
-        }
+        setError(e instanceof Error ? e.message : "Failed to load batches");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (isInitial) setLoading(false);
+        else setLoadingMore(false);
       }
-    })();
+    },
+    [contract]
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [contract, address]);
+  // Initial load (or reload when the connected wallet changes)
+  useEffect(() => {
+    if (!contract) return;
+    setCards([]);
+    fetchPage(0, true);
+  }, [contract, address, fetchPage]);
 
-  // Client-side filter + pagination (no extra RPC calls)
+  // Search filters the batches we have already loaded. To search beyond
+  // the loaded set, the user clicks Load More until enough batches are
+  // present. We surface this with a hint when results look short.
   const filtered = cards.filter((c) => {
     const q = search.toLowerCase();
+    if (!q) return true;
     return (
       c.batch.productName.toLowerCase().includes(q) ||
       c.batch.origin.toLowerCase().includes(q)
     );
   });
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  // Clamp the current page so a shrinking list (e.g. after a new search)
-  // never leaves the user on an empty page.
-  const safePage = Math.min(page, totalPages);
-  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  // Reset to page 1 when search changes
-  const handleSearch = (q: string) => { setSearch(q); setPage(1); };
+  const hasMore = cards.length < totalCount;
+
+  const handleLoadMore = () => fetchPage(cards.length, false);
 
   // Gate the page on wallet connection. The dashboard is for connected roles only.
   if (!isConnected) {
@@ -116,7 +128,7 @@ export default function Dashboard() {
           <p className="text-sm text-gray-500 mt-1">
             {loading
               ? t("dashboard.loadingBatches")
-              : `${cards.length} ${cards.length === 1 ? t("dashboard.batchCount") : t("dashboard.batchesCount")}`}
+              : `${cards.length}${hasMore ? `/${totalCount}` : ""} ${cards.length === 1 ? t("dashboard.batchCount") : t("dashboard.batchesCount")}`}
           </p>
         </div>
         <Link
@@ -127,24 +139,33 @@ export default function Dashboard() {
         </Link>
       </header>
 
-      {/* Search bar */}
+      {/* Search bar. Filters the batches already loaded; when there are
+          more batches on-chain than visible, we hint that loading more
+          may surface additional matches. */}
       {!loading && cards.length > 0 && (
-        <div className="flex gap-2 max-w-md">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder={t("dashboard.searchPlaceholder")}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => handleSearch("")}
-              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md"
-            >
-              {t("common.clear")}
-            </button>
+        <div className="space-y-2 max-w-md">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("dashboard.searchPlaceholder")}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-md"
+              >
+                {t("common.clear")}
+              </button>
+            )}
+          </div>
+          {search && hasMore && (
+            <p className="text-xs text-gray-500">
+              {t("dashboard.searchHint")}
+            </p>
           )}
         </div>
       )}
@@ -185,10 +206,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!loading && paginated.length > 0 && (
+      {!loading && filtered.length > 0 && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginated.map(({ id, batch, checkpointCount }) => (
+            {filtered.map(({ id, batch, checkpointCount }) => (
               <BatchCardItem
                 key={id}
                 id={id}
@@ -198,28 +219,18 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Pagination controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
+          {/* Load more: fetch the next page of batchIds from the contract */}
+          {hasMore && (
+            <div className="flex items-center justify-center pt-4">
               <button
                 type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={safePage === 1}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50 transition-colors"
               >
-                ← {t("common.prev")}
-              </button>
-              <span className="text-sm text-gray-600">
-                {t("common.page")} {safePage} {t("common.of")} {totalPages}
-                {search ? ` (${filtered.length} ${t("dashboard.results")})` : ""}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safePage === totalPages}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
-              >
-                {t("common.next")} →
+                {loadingMore
+                  ? t("common.loading")
+                  : `${t("dashboard.loadMore")} (${cards.length}/${totalCount})`}
               </button>
             </div>
           )}
@@ -254,8 +265,8 @@ function BatchCardItem({
       {/* Image preview or placeholder gradient */}
       <div className="aspect-video bg-gradient-to-br from-green-50 to-emerald-100 overflow-hidden">
         {batch.ipfsHash ? (
-          <img
-            src={ipfsUrl(batch.ipfsHash)}
+          <ResilientImage
+            cid={batch.ipfsHash}
             alt={batch.productName}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"

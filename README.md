@@ -6,7 +6,7 @@
 **University**: RMIT University Vietnam
 **Group**: 7
 **Live deployment**: Polygon Amoy testnet
-**Contract address**: [`0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2`](https://amoy.polygonscan.com/address/0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2)
+**Contract address**: [`0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816`](https://amoy.polygonscan.com/address/0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816)
 **Live demo**: [fresh-trace-hmgn.vercel.app](https://fresh-trace-hmgn.vercel.app/)
 
 ## Problem Statement
@@ -216,7 +216,7 @@ Open <http://localhost:5173>.
 
 ## Quick Start — Polygon Amoy Testnet
 
-The contract is already live at [`0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2`](https://amoy.polygonscan.com/address/0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2).
+The contract is already live at [`0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816`](https://amoy.polygonscan.com/address/0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816).
 
 To use this deployment:
 
@@ -224,7 +224,7 @@ To use this deployment:
    ```
    VITE_CHAIN_ID=80002
    VITE_POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
-   VITE_CONTRACT_ADDRESS=0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2
+   VITE_CONTRACT_ADDRESS=0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816
    ```
 2. Add Polygon Amoy network to MetaMask
 3. Request POL from the faucet (you only need ~0.05 POL for testing)
@@ -270,7 +270,7 @@ cd ../../frontend
 npm test
 ```
 
-**108 contract tests + 57 frontend tests** (165 total) run automatically via GitHub Actions CI on every push.
+**114 contract tests + 57 frontend tests** (171 total) run automatically via GitHub Actions CI on every push.
 
 Contract tests cover (76 in the main suite, 32 in the edge case suite):
 
