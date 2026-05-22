@@ -21,9 +21,10 @@ __pycache__/
 .venv/
 *.pyc
 
-# Simulation output
+# Simulation / benchmark output
 simulation-results.json
 deployments.json
+benchmark-results.json
 
 # OS
 .DS_Store

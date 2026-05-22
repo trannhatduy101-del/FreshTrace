@@ -28,11 +28,33 @@ FreshTrace addresses this with an **append-only, role-based audit log** on the P
 
 ### Key Design Decisions
 
-- **Forward-only ordering** with backward-walk algorithm: even when add-on checkpoints are interleaved, the system finds the last main-flow action to prevent retroactive falsification (e.g. SHIPPED → add-on → PROCESSED is blocked)
-- **Append-only Checkpoint array**: nothing is ever deleted or overwritten — guaranteed by absence of `delete` operations in the contract
+- **Forward-only ordering** with backward-walk algorithm: even when add-on checkpoints are interleaved, the system finds the last main-flow action to prevent retroactive falsification (e.g. SHIPPED then add-on then PROCESSED is blocked)
+- **Append-only Checkpoint array**: nothing is ever deleted or overwritten, guaranteed by the absence of any delete or update function in the contract
 - **Flag resolution lifecycle**: flags can be raised AND resolved, with `batch.flagged` automatically recomputed
 - **Public trace requires zero wallet**: uses a read-only RPC provider via PublicNode
 - **Custom errors over revert strings**: gas-efficient and carry typed args (batchId, attempted action, last action) for cleaner front-end handling
+
+### What goes on-chain vs off-chain
+
+To avoid confusion, here is precisely what FreshTrace stores where.
+
+**On-chain (in contract storage):**
+- Full batch metadata: productName, origin, harvestDate, quantity, unit, ocop flag, producer address
+- Every checkpoint as a full record: actor address, location string, timestamp, action enum, optional ipfsHash, optional addonLabel
+- Every audit flag: auditor address, reason string, timestamps, resolution status
+- The deterministic batchId derived from the inputs
+
+This makes the chain the authoritative source for the supply-chain narrative
+itself. A read of `getHistory(batchId)` returns everything a consumer needs
+without touching any other system.
+
+**Off-chain (IPFS via Pinata):**
+- Product photo attached at batch registration
+- Evidence photo attached at each checkpoint or add-on step
+
+Only the IPFS CID is stored on-chain. The image bytes live on IPFS so we
+do not pay storage gas for binary blobs. The CID anchors the image to the
+on-chain record cryptographically: a tampered image would not match.
 
 ## Tech Stack
 
@@ -57,7 +79,8 @@ freshtrace/
 │   ├── scripts/
 │   │   ├── setup.ts                        # Deploy + grant 4 roles + sync frontend .env
 │   │   └── fund.ts                         # Send test ETH on Hardhat local
-│   ├── test/FreshTrace.test.ts             # 66 automated tests (chai + ethers-v6)
+│   ├── test/FreshTrace.test.ts             # main suite (chai + ethers-v6)
+│   ├── test/EdgeCases.test.ts              # boundary + stress edge cases
 │   ├── start-dev.ps1                       # One-command local dev setup
 │   └── hardhat.config.ts                   # Both Amoy + Hardhat configured
 │
@@ -193,7 +216,7 @@ Open <http://localhost:5173>.
 
 ## Quick Start — Polygon Amoy Testnet
 
-The contract is already live at [`0xE15188bF47e56e0Dd118f51c85Ff9D23D4271268`](https://amoy.polygonscan.com/address/0xE15188bF47e56e0Dd118f51c85Ff9D23D4271268).
+The contract is already live at [`0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2`](https://amoy.polygonscan.com/address/0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2).
 
 To use this deployment:
 
@@ -201,7 +224,7 @@ To use this deployment:
    ```
    VITE_CHAIN_ID=80002
    VITE_POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
-   VITE_CONTRACT_ADDRESS=0xE15188bF47e56e0Dd118f51c85Ff9D23D4271268
+   VITE_CONTRACT_ADDRESS=0x2Ba4bE636888767B663e18d2a66D0dCc21E82ae2
    ```
 2. Add Polygon Amoy network to MetaMask
 3. Request POL from the faucet (you only need ~0.05 POL for testing)
@@ -247,23 +270,54 @@ cd ../../frontend
 npm test
 ```
 
-**76 contract tests + 18 frontend tests** — all run automatically via GitHub Actions CI on every push.
+**108 contract tests + 57 frontend tests** (165 total) run automatically via GitHub Actions CI on every push.
 
-Contract tests cover:
+Contract tests cover (76 in the main suite, 32 in the edge case suite):
 
-- Deployment & role assignment (2)
-- `registerBatch` happy path + revert paths (6)
-- `logCheckpoint` ordering, anomaly detection, RBAC (10)
-- `flagBatch` lifecycle (4 + 4 edge cases)
-- `logAddon` for all 4 roles, ordering edge cases (11)
-- `resolveFlag` partial/full resolution, RBAC (8)
-- `getHistory`, `getBatchIds`, `getBatchCount` (8)
-- Edge cases: missing batch, large quantities, forward-skip, timestamp drift (12)
-- Anomaly detection: backward moves, duplicate stages (3)
-- Add-on flow integrity: backward-walk correctness (1)
-- Input validation: empty fields, oversized strings, date sanity, unit enum (10)
+- Deployment and role assignment
+- `registerBatch` happy path plus revert paths
+- `logCheckpoint` ordering, anomaly detection, RBAC
+- `flagBatch` lifecycle, including accumulating multiple flags
+- `logAddon` for all four roles and ordering edge cases
+- `resolveFlag` partial and full resolution flows, RBAC
+- `getHistory`, `getBatchIds`, `getBatchCount` view functions
+- Input validation: empty fields, oversized strings, date sanity, unit enum
+- Boundary values: quantity at uint256 max, 300-byte name limits
+- UTF-8: Vietnamese diacritics, emoji, Chinese characters round-trip
+- Add-on placement: at chain start, at chain end, multiple consecutive
+- Duplicate detection and the abi.encode collision fix
 
-Frontend tests cover: debounced batch-ID lookup, `bytes32` hex validation, recent-history localStorage logic.
+Frontend tests cover (57 total): debounced batch-ID lookup, bytes32 hex
+validation, recent-batches localStorage with edge cases (corrupted JSON,
+quota exceeded, case-insensitive dedup), i18n provider (default locale,
+fallback, persistence), the LanguageToggle and ErrorMessage components,
+and the friendlyError / classifyError helpers across 11 error kinds.
+
+## Gas + Throughput Benchmark
+
+Live measurements on Polygon Amoy with a fresh deploy (see
+`freshtrace-project/freshtrace/BENCHMARK.md` for the full report and
+on-chain transaction links):
+
+| Function | Gas | Cost @ 30 gwei | Cost USD @ $0.25 POL |
+|---|---:|---:|---:|
+| registerBatch | 335,746 | 0.0101 POL | $0.0025 |
+| logCheckpoint | 171,272 | 0.0051 POL | $0.0013 |
+| logAddon | 160,426 | 0.0048 POL | $0.0012 |
+| flagBatch | 149,351 | 0.0045 POL | $0.0011 |
+| resolveFlag | 94,826 | 0.0028 POL | $0.0007 |
+
+A full batch lifecycle (register + four main-flow checkpoints + one add-on
++ one flag and resolve) totals 1.43M gas, around **$0.011 per batch**.
+
+Theoretical throughput ceiling at average 178k gas per call against a
+30M gas block limit and 2s block time is **about 84 FreshTrace tx per
+second**. For Vietnam's roughly 10,000 OCOP-certified products at 100
+batches per producer per month, the entire national rollout would cost
+on the order of $1,000 per month in gas, while replacing paper
+certificates entirely.
+
+Reproduce: `npx hardhat run scripts/benchmark.ts --network amoy`
 
 ---
 
