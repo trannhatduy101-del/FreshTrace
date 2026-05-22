@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Contract } from "ethers";
 import {
   Batch,
@@ -9,6 +9,7 @@ import {
   QuantityUnit,
 } from "../types";
 import { ipfsUrl } from "../config/pinata";
+import { getReadOnlyContract } from "./useContract";
 
 interface HistoryState {
   batch: Batch | null;
@@ -23,8 +24,20 @@ const EMPTY_URLS: BatchImageUrls = { batchImage: null, checkpointImages: [] };
 
 // Fetch full audit history for a single batch and parse the tuple into typed
 // shapes. Returns gateway-resolved image URLs alongside raw data for convenience.
+//
+// Reads go through our own read-only contract (PublicNode JsonRpcProvider),
+// NOT through the signer-bound contract that callers pass in. Two reasons:
+//   1. After a write transaction, the receipt comes back from PublicNode.
+//      Reading from MetaMask's bundled RPC right after that often lags and
+//      returns pre-tx state, so the timeline UI stays stale until the user
+//      refreshes the whole page.
+//   2. Reads are public and never need a signer.
+//
+// The first argument is kept for backward compatibility (and to act as an
+// "enabled" gate: pass null to suspend fetching) but the contract is no
+// longer used as the read target.
 export function useBatchHistory(
-  contract: Contract | null,
+  enabled: Contract | null | true,
   batchId: string | undefined
 ) {
   const [state, setState] = useState<HistoryState>({
@@ -36,20 +49,23 @@ export function useBatchHistory(
     error: null,
   });
 
+  // One read-only contract instance per hook instance. Stable across renders.
+  const readContract = useMemo(() => getReadOnlyContract(), []);
+
   // Monotonic counter so an older in-flight fetch cannot overwrite the
   // result of a newer one when batchId changes rapidly (e.g. the user is
   // typing in a search box and each character kicks off a new fetch).
   const requestId = useRef(0);
 
-  // Extracted as callback so pages can manually refresh after writes
+  // Extracted as a callback so pages can manually refresh after writes.
   const fetchHistory = useCallback(async () => {
-    if (!contract || !batchId) return;
+    if (!enabled || !batchId) return;
     const myId = ++requestId.current;
     setState((s) => ({ ...s, loading: true, error: null }));
 
     try {
       // Solidity getHistory returns a tuple: (Batch, Checkpoint[], AuditFlag[])
-      const [rawBatch, rawCheckpoints, rawFlags] = await contract.getHistory(
+      const [rawBatch, rawCheckpoints, rawFlags] = await readContract.getHistory(
         batchId
       );
       // If a newer fetch already started, drop this stale result.
@@ -122,7 +138,7 @@ export function useBatchHistory(
         error: msg,
       });
     }
-  }, [contract, batchId]);
+  }, [enabled, batchId, readContract]);
 
   // Auto-fetch on dependency change
   useEffect(() => {

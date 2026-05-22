@@ -63,17 +63,26 @@ export default function LogCheckpoint() {
   const debouncedBatchId = useDebounce(batchId, 600);
   const isValidId = isValidBatchId(debouncedBatchId);
 
-  // Live history for the batch the user is targeting
-  const history = useBatchHistory(contract, isValidId ? debouncedBatchId : undefined);
+  // Live history for the batch the user is targeting. Passes true as the
+  // "enabled" gate so useBatchHistory uses its read-only PublicNode contract
+  // (same RPC that confirmed the receipt, no MetaMask RPC lag).
+  const history = useBatchHistory(isValidId ? true : null, isValidId ? debouncedBatchId : undefined);
 
-  // Refresh timeline after successful submit (either form)
+  // Refresh timeline after a successful submit. A short delay gives the
+  // read RPC a beat to propagate the just-written tx so the refreshed
+  // checkpoint actually shows up. Without this the user often sees the
+  // pre-submit state until they manually reload.
   useEffect(() => {
-    if (success) history.refresh();
+    if (!success) return;
+    const id = setTimeout(() => { history.refresh(); }, 800);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
 
   useEffect(() => {
-    if (addonSuccess) history.refresh();
+    if (!addonSuccess) return;
+    const id = setTimeout(() => { history.refresh(); }, 800);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addonSuccess]);
 

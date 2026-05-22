@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Contract } from "ethers";
 import { useBatchHistory } from "../hooks/useBatchHistory";
-import { getReadOnlyContract } from "../hooks/useContract";
 import AuditTimeline from "../components/AuditTimeline";
 import FlaggedBanner from "../components/FlaggedBanner";
 import QRCodeDisplay from "../components/QRCodeDisplay";
@@ -30,12 +28,11 @@ export default function PublicTrace() {
   // Search input state (only used when no URL param is present)
   const [searchInput, setSearchInput] = useState("");
 
-  // Read-only contract created once and shared across renders
-  const contract = useMemo<Contract>(() => getReadOnlyContract(), []);
-
   const isValidId = isValidBatchId(paramBatchId);
 
-  const history = useBatchHistory(contract, isValidId ? paramBatchId : undefined);
+  // useBatchHistory now manages its own read-only contract internally;
+  // we just pass true as the enabled gate.
+  const history = useBatchHistory(isValidId ? true : null, isValidId ? paramBatchId : undefined);
 
   // Whenever we successfully load a batch, push it to recent history
   useEffect(() => {

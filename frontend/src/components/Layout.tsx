@@ -123,13 +123,6 @@ export default function Layout({ children }: LayoutProps) {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {children}
       </main>
-
-      {/* Footer, credits Group 7 per the project brief. */}
-      <footer className="border-t border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-xs text-gray-500">
-          FreshTrace — INTE264 Blockchain Technology Fundamentals, Group 7 · RMIT
-        </div>
-      </footer>
     </div>
   );
 }

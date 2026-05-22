@@ -155,7 +155,7 @@ function BatchAuditRow({
   onToggle: () => void;
   onFlagSuccess: (updated: BatchRow) => void;
 }) {
-  const history = useBatchHistory(expanded ? contract : null, expanded ? row.id : undefined);
+  const history = useBatchHistory(expanded ? true : null, expanded ? row.id : undefined);
   const { flagBatch, reset, loading, success, error, txHash } = useFlagBatch(contract);
   const { resolveFlag, loading: resolving } = useResolveFlag(contract);
   const [reason, setReason] = useState("");
