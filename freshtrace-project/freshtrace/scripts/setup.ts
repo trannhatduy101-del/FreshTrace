@@ -87,6 +87,15 @@ async function main() {
     const hash = await (contract as any)[role]();
     await contract.grantRole(hash, to);
     console.log(`Granted ${role} -> ${to}`);
+    // Also keep the deployer wallet stocked with every role. They already
+    // hold DEFAULT_ADMIN_ROLE from the constructor; the participant roles
+    // make the deployer a "super-user" that can demo the full flow from a
+    // single MetaMask account without losing the per-role separation for
+    // the actual demo wallets above.
+    if (to.toLowerCase() !== deployer.address.toLowerCase()) {
+      await contract.grantRole(hash, deployer.address);
+      console.log(`Granted ${role} -> ${deployer.address} (deployer)`);
+    }
   }
 
   const chainId = CHAIN_IDS[network.name] ?? 0;

@@ -172,6 +172,11 @@ Import the matching private keys into MetaMask (see
 `freshtrace-project/freshtrace/HARDHAT_ACCOUNTS.md` for the full list) and
 switch accounts in MetaMask to demo each role's view.
 
+The deployer wallet (account #0) keeps every role on top of admin, so a
+single MetaMask account can also walk through the entire flow without
+switching. The per-role accounts above are for showing the separation
+of duties; the deployer is the convenient "super-user" for solo demos.
+
 ### 3. Start local blockchain + deploy (Windows PowerShell)
 
 Run this once per session:
