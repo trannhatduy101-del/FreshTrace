@@ -163,10 +163,14 @@ function BatchAuditRow({
 
   const onResolve = async (flagIndex: number) => {
     await resolveFlag(row.id, flagIndex);
-    history.refresh();
-    // Re-check if all flags resolved to update parent badge
+    // Check against the snapshot we already have. If every OTHER flag was
+    // already resolved, then resolving this one clears the batch flag.
+    // Safe to skip awaiting the refresh because the snapshot at this point
+    // still describes the on-chain state from before our resolve, and the
+    // flag being resolved is `flagIndex` itself.
     const allResolved = history.auditFlags.every((f, i) => i === flagIndex || f.resolved);
     if (allResolved) onFlagSuccess({ ...row, batch: { ...row.batch, flagged: false } });
+    await history.refresh();
   };
 
   const harvestStr = new Date(Number(row.batch.harvestDate) * 1000).toLocaleDateString(

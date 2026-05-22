@@ -55,13 +55,12 @@ export function useCheckpoint(contract: Contract | null) {
         // If pre-check fails, fall through to the actual transaction.
       }
 
-      // 2. Upload evidence photo if provided.
-      const cid = file ? await uploadFile(file) : "";
-
-      // 3. Submit checkpoint transaction via the generic submitter.
-      await tx.submit(() =>
-        contract.logCheckpoint(batchId, actionType, location, cid, TX_OVERRIDES)
-      );
+      // 2. Submit: upload + checkpoint tx together so loading state covers
+      //    the IPFS step and Pinata errors land in tx.error properly.
+      await tx.submit(async () => {
+        const cid = file ? await uploadFile(file) : "";
+        return contract.logCheckpoint(batchId, actionType, location, cid, TX_OVERRIDES);
+      });
     },
     [contract, uploadFile, tx]
   );

@@ -84,7 +84,10 @@ export default function Dashboard() {
     );
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Clamp the current page so a shrinking list (e.g. after a new search)
+  // never leaves the user on an empty page.
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Reset to page 1 when search changes
   const handleSearch = (q: string) => { setSearch(q); setPage(1); };
@@ -201,19 +204,19 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
+                disabled={safePage === 1}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
               >
                 ← {t("common.prev")}
               </button>
               <span className="text-sm text-gray-600">
-                {t("common.page")} {page} {t("common.of")} {totalPages}
+                {t("common.page")} {safePage} {t("common.of")} {totalPages}
                 {search ? ` (${filtered.length} ${t("dashboard.results")})` : ""}
               </span>
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
+                disabled={safePage === totalPages}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-md disabled:opacity-40 hover:bg-gray-50"
               >
                 {t("common.next")} →

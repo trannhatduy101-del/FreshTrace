@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Contract } from "ethers";
 import {
   Batch,
@@ -36,9 +36,15 @@ export function useBatchHistory(
     error: null,
   });
 
+  // Monotonic counter so an older in-flight fetch cannot overwrite the
+  // result of a newer one when batchId changes rapidly (e.g. the user is
+  // typing in a search box and each character kicks off a new fetch).
+  const requestId = useRef(0);
+
   // Extracted as callback so pages can manually refresh after writes
   const fetchHistory = useCallback(async () => {
     if (!contract || !batchId) return;
+    const myId = ++requestId.current;
     setState((s) => ({ ...s, loading: true, error: null }));
 
     try {
@@ -46,6 +52,8 @@ export function useBatchHistory(
       const [rawBatch, rawCheckpoints, rawFlags] = await contract.getHistory(
         batchId
       );
+      // If a newer fetch already started, drop this stale result.
+      if (myId !== requestId.current) return;
 
       // Map raw struct arrays to typed objects (ethers v6 returns Result tuples)
       const batch: Batch = {
@@ -102,6 +110,7 @@ export function useBatchHistory(
         error: null,
       });
     } catch (e) {
+      if (myId !== requestId.current) return;
       const msg =
         e instanceof Error ? e.message : "Failed to load batch history";
       setState({

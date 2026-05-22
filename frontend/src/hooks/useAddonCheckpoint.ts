@@ -18,10 +18,12 @@ export function useAddonCheckpoint(contract: Contract | null) {
         });
         return;
       }
-      const cid = file ? await uploadFile(file) : "";
-      await tx.submit(() =>
-        contract.logAddon(batchId, addonLabel.trim(), location, cid, TX_OVERRIDES)
-      );
+      // Run upload + tx in one factory so a Pinata failure surfaces through
+      // tx.error and the loading spinner covers the upload step too.
+      await tx.submit(async () => {
+        const cid = file ? await uploadFile(file) : "";
+        return contract.logAddon(batchId, addonLabel.trim(), location, cid, TX_OVERRIDES);
+      });
     },
     [contract, uploadFile, tx]
   );

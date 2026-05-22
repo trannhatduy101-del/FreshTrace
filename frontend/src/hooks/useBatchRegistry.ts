@@ -24,11 +24,13 @@ export function useBatchRegistry(contract: Contract | null) {
     ) => {
       if (!contract) return;
 
-      // Upload the photo first so a Pinata failure doesn't waste a tx.
-      const cid = file ? await uploadFile(file) : "";
-
+      // Run upload + tx inside one factory so a Pinata failure is surfaced
+      // via tx.error (with the loading spinner showing during the upload too).
       await tx.submit(
-        () => contract.registerBatch(productName, origin, harvestDate, quantity, unit, ocop, cid, TX_OVERRIDES),
+        async () => {
+          const cid = file ? await uploadFile(file) : "";
+          return contract.registerBatch(productName, origin, harvestDate, quantity, unit, ocop, cid, TX_OVERRIDES);
+        },
         (receipt) => {
           // Extract batchId from the BatchRegistered event in the receipt.
           for (const log of receipt.logs) {
