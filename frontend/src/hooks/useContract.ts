@@ -26,6 +26,9 @@ export function useContract() {
     (async () => {
       try {
         const provider = new BrowserProvider(walletProvider);
+        // Default poll interval (4s) hammers MetaMask's RPC during tx.wait()
+        // and trips 429 rate limits. 8s is plenty for Amoy block times (~2s).
+        provider.pollingInterval = 8000;
         const signer = await provider.getSigner();
         if (cancelled) return;
         setContract(new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer));

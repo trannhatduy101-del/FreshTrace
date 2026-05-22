@@ -3,28 +3,14 @@ import { Contract } from "ethers";
 import { usePinata } from "./usePinata";
 import { TX_OVERRIDES } from "../config/chains";
 import { QuantityUnit } from "../types";
+import { useTransaction } from "./useTransaction";
 
-interface RegistryState {
-  loading: boolean;
-  success: boolean;
-  error: string | null;
-  batchId: string | null;
-  txHash: string | null;
-}
-
-const INITIAL: RegistryState = {
-  loading: false,
-  success: false,
-  error: null,
-  batchId: null,
-  txHash: null,
-};
-
-// Register a new batch end-to-end: optional Pinata upload, then on-chain tx,
+// Register a new batch end to end: optional Pinata upload, then on-chain tx,
 // then parse the BatchRegistered event to surface the new batchId to the UI.
 export function useBatchRegistry(contract: Contract | null) {
   const { uploadFile } = usePinata();
-  const [state, setState] = useState<RegistryState>(INITIAL);
+  const tx = useTransaction("Registration failed");
+  const [batchId, setBatchId] = useState<string | null>(null);
 
   const register = useCallback(
     async (
@@ -36,69 +22,44 @@ export function useBatchRegistry(contract: Contract | null) {
       ocop: boolean,
       file?: File | null
     ) => {
-      if (!contract) {
-        setState({ ...INITIAL, error: "Wallet not connected" });
-        return;
-      }
+      if (!contract) return;
 
-      setState({ ...INITIAL, loading: true });
+      // Upload the photo first so a Pinata failure doesn't waste a tx.
+      const cid = file ? await uploadFile(file) : "";
 
-      try {
-        // 1. Upload image first so failures don't waste a transaction
-        let cid = "";
-        if (file) {
-          cid = await uploadFile(file);
-        }
-
-        // 2. Submit registerBatch transaction (signer-bound contract)
-        const tx = await contract.registerBatch(
-          productName,
-          origin,
-          harvestDate,
-          quantity,
-          unit,
-          ocop,
-          cid,
-          TX_OVERRIDES
-        );
-
-        // 3. Wait for inclusion, then extract batchId from the event
-        const receipt = await tx.wait();
-
-        // Parse BatchRegistered log emitted in the same tx
-        let batchId: string | null = null;
-        for (const log of receipt.logs) {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            if (parsed && parsed.name === "BatchRegistered") {
-              batchId = parsed.args.batchId as string;
-              break;
+      await tx.submit(
+        () => contract.registerBatch(productName, origin, harvestDate, quantity, unit, ocop, cid, TX_OVERRIDES),
+        (receipt) => {
+          // Extract batchId from the BatchRegistered event in the receipt.
+          for (const log of receipt.logs) {
+            try {
+              const parsed = contract.interface.parseLog(log);
+              if (parsed && parsed.name === "BatchRegistered") {
+                setBatchId(parsed.args.batchId as string);
+                break;
+              }
+            } catch {
+              // Not our event, skip
             }
-          } catch {
-            // Skip logs not matching this contract's ABI
           }
         }
-
-        setState({
-          loading: false,
-          success: true,
-          error: null,
-          batchId,
-          txHash: receipt.hash,
-        });
-      } catch (e) {
-        const msg =
-          e instanceof Error
-            ? e.message
-            : "Registration failed, see console for details";
-        setState({ ...INITIAL, error: msg });
-      }
+      );
     },
-    [contract, uploadFile]
+    [contract, uploadFile, tx]
   );
 
-  // Allow callers to reset form state after handling success
-  const reset = useCallback(() => setState(INITIAL), []);
+  const reset = useCallback(() => {
+    tx.reset();
+    setBatchId(null);
+  }, [tx]);
 
-  return { register, reset, ...state };
+  return {
+    register,
+    reset,
+    loading: tx.loading,
+    success: tx.success,
+    error: tx.error,
+    txHash: tx.txHash,
+    batchId,
+  };
 }
