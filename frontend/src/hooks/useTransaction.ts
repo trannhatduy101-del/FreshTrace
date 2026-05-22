@@ -2,10 +2,8 @@ import { useCallback, useState } from "react";
 import { ContractTransactionResponse, JsonRpcProvider } from "ethers";
 import { POLYGON_AMOY_RPC_URL } from "../config/chains";
 
-/**
- * Shared transaction state shape used by every write-hook in the dApp.
- * Centralised here so the dozen submit hooks don't each redefine it.
- */
+// Common state shape for every write hook in the app, kept in one place
+// so the five submit hooks don't each redefine the same four fields.
 export interface TxState {
   loading: boolean;
   success: boolean;
@@ -57,24 +55,9 @@ async function waitForReceipt(txHash: string, maxAttempts = 5) {
   throw new Error("Receipt polling exhausted retries");
 }
 
-/**
- * Generic transaction submitter. Removes the loading/try/catch/setState
- * boilerplate that was previously duplicated across useCheckpoint, useFlagBatch,
- * useAddonCheckpoint, useResolveFlag, and useBatchRegistry.
- *
- * Usage:
- *   const { submit, reset, ...state } = useTransaction();
- *   await submit(() => contract.flagBatch(id, reason, TX_OVERRIDES));
- *
- * The submit function:
- *   - sets loading=true before the tx is dispatched
- *   - awaits tx broadcast via MetaMask, then polls for receipt via our own
- *     read RPC (avoids MetaMask's rate-limited default)
- *   - retries receipt polling on 429 with exponential backoff
- *   - stores the receipt hash on success
- *   - captures Error.message on failure (with a fallback string)
- *   - returns the receipt so callers can chain further work (event parsing, etc.)
- */
+// Generic tx submitter shared by all the write hooks. Caller hands in a
+// factory that returns the ContractTransactionResponse; we drive loading
+// state, wait for the receipt via our own RPC, and surface error/success.
 export function useTransaction(fallbackErrorMsg = "Transaction failed") {
   const [state, setState] = useState<TxState>(INITIAL_TX_STATE);
 

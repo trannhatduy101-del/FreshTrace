@@ -1,365 +1,263 @@
 # FreshTrace
 
-> Immutable supply chain traceability dApp for Vietnam's OCOP-certified agricultural produce.
+A small dApp that puts the supply chain trail of Vietnamese OCOP-certified
+produce on the Polygon blockchain. Every step from farm to retail shelf is
+signed by a wallet and cannot be edited after the fact, so the consumer
+who scans the QR sees the real history, not whatever a website happens to
+say today.
 
-**Course**: INTE264 — Blockchain Technology Fundamentals
-**University**: RMIT University Vietnam
-**Group**: 7
-**Live deployment**: Polygon Amoy testnet
-**Contract address**: [`0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816`](https://amoy.polygonscan.com/address/0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816)
-**Live demo**: [fresh-trace-hmgn.vercel.app](https://fresh-trace-hmgn.vercel.app/)
+Live demo: https://fresh-trace-hmgn.vercel.app
+Contract on Polygon Amoy: 0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816
+([Polygonscan](https://amoy.polygonscan.com/address/0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816))
 
-## Problem Statement
+## Why
 
-OCOP (One Commune, One Product) certifies high-quality Vietnamese agricultural produce. Yet consumers have no reliable way to verify a product's origin once it leaves the farm — paper certificates can be faked, QR codes link to centralised websites whose data can be edited, and supply chain participants can falsify records without trace.
+OCOP (One Commune, One Product) is Vietnam's quality certification for
+agricultural goods, but once a batch leaves the farm there is no
+trustworthy way to verify its origin. Paper certificates can be forged,
+QR codes on packaging usually link to a regular website whose database
+the seller controls, and intermediate steps in the chain go undocumented.
 
-FreshTrace addresses this with an **append-only, role-based audit log** on the Polygon blockchain. Every checkpoint — from harvest to retail shelf — is signed by the participant's wallet and cannot be altered or deleted, even by the system administrator.
+The chain is the audit log. Producers register a batch and get a unique
+on-chain id. Logistics and retailer accounts append checkpoints as the
+goods move forward, with a strict forward-only rule so you cannot insert
+a PROCESSED step once SHIPPED is already recorded. Auditors can raise
+flags and later resolve them. Anyone can read the full history through
+the public trace page with no wallet at all.
 
-## Features
+## What it does
 
-| Role | Capability |
-|---|---|
-| **Producer** | Register a new batch → automatic HARVESTED checkpoint + unique QR code |
-| **Logistics** | Log main-flow checkpoints (PROCESSED → PACKED → SHIPPED), with forward-only enforcement |
-| **Retailer** | Confirm RECEIVED at the end of the supply chain |
-| **Auditor** | Flag suspicious batches, then mark flags as **resolved** once concerns are addressed |
-| **Any participant** | Append **add-on processes** (Quality Check, Cold Storage, Fumigation) without affecting main-flow ordering |
-| **Public consumer** | Scan QR code → verify full supply-chain history without any wallet or account |
+A producer registers a new batch and gets a QR code printed on the
+packaging. The HARVESTED step is created in the same transaction.
 
-### Key Design Decisions
+Logistics scans the QR, picks an action (PROCESSED, PACKED, SHIPPED) and
+logs the checkpoint. Retailer does the same for the final RECEIVED step.
+Any of the four roles can also add a custom step (Quality Check, Cold
+Storage, Customs, Fumigation) without breaking the main flow order.
 
-- **Forward-only ordering** with backward-walk algorithm: even when add-on checkpoints are interleaved, the system finds the last main-flow action to prevent retroactive falsification (e.g. SHIPPED then add-on then PROCESSED is blocked)
-- **Append-only Checkpoint array**: nothing is ever deleted or overwritten, guaranteed by the absence of any delete or update function in the contract
-- **Flag resolution lifecycle**: flags can be raised AND resolved, with `batch.flagged` automatically recomputed
-- **Public trace requires zero wallet**: uses a read-only RPC provider via PublicNode
-- **Custom errors over revert strings**: gas-efficient and carry typed args (batchId, attempted action, last action) for cleaner front-end handling
+An auditor can flag a batch with a reason. The flag stays open until an
+auditor resolves it. A flagged batch is still allowed to move through
+the chain, so goods in transit are not stranded; the warning just shows
+up loud on the trace page.
 
-### What goes on-chain vs off-chain
+A consumer opens the trace URL (or scans the QR), sees the product, the
+producer's wallet, every checkpoint and add-on in order, every flag and
+its resolution status, and any evidence photos pinned to IPFS.
 
-To avoid confusion, here is precisely what FreshTrace stores where.
+## Stack
 
-**On-chain (in contract storage):**
-- Full batch metadata: productName, origin, harvestDate, quantity, unit, ocop flag, producer address
-- Every checkpoint as a full record: actor address, location string, timestamp, action enum, optional ipfsHash, optional addonLabel
-- Every audit flag: auditor address, reason string, timestamps, resolution status
-- The deterministic batchId derived from the inputs
+Solidity 0.8.20 with OpenZeppelin AccessControl for the four roles
+(Producer, Logistics, Retailer, Auditor) plus the deployer's admin role.
+Hardhat for compile and test, deployed to Polygon Amoy testnet.
 
-This makes the chain the authoritative source for the supply-chain narrative
-itself. A read of `getHistory(batchId)` returns everything a consumer needs
-without touching any other system.
+Frontend is React 18 with Vite and TypeScript. Wallet plumbing via
+ethers v6 and @web3modal/ethers for MetaMask plus WalletConnect QR on
+mobile. Tailwind for styling. Pinata for the optional IPFS uploads.
 
-**Off-chain (IPFS via Pinata):**
-- Product photo attached at batch registration
-- Evidence photo attached at each checkpoint or add-on step
+CI is a single GitHub Actions workflow that compiles the contract, runs
+both test suites, type-checks the frontend, and runs the production
+build on every push.
 
-Only the IPFS CID is stored on-chain. The image bytes live on IPFS so we
-do not pay storage gas for binary blobs. The CID anchors the image to the
-on-chain record cryptographically: a tampered image would not match.
+## Quick start (local Hardhat)
 
-## Tech Stack
+You need Node v20 or later, Git, and the MetaMask browser extension.
 
-| Layer | Technology |
-|---|---|
-| Smart contract | Solidity 0.8.20, OpenZeppelin `AccessControl` |
-| Contract framework | Hardhat 2.x |
-| Network (production demo) | Polygon Amoy testnet (chainId `80002`) |
-| Network (local dev) | Hardhat Network (chainId `31337`) |
-| Frontend | React 18 + Vite + TypeScript |
-| Web3 integration | ethers.js v6, custom WalletContext (MetaMask) |
-| Off-chain storage | IPFS via Pinata (optional, for evidence photos) |
-| Styling | Tailwind CSS |
-| QR generation | `qrcode.react` |
-
-## Repository Structure
-
-```
-freshtrace/
-├── freshtrace-project/freshtrace/          # Hardhat smart contract project
-│   ├── contracts/FreshTrace.sol            # Main contract (~470 LOC, fully commented)
-│   ├── scripts/
-│   │   ├── setup.ts                        # Deploy + grant 4 roles + sync frontend .env
-│   │   └── fund.ts                         # Send test ETH on Hardhat local
-│   ├── test/FreshTrace.test.ts             # main suite (chai + ethers-v6)
-│   ├── test/EdgeCases.test.ts              # boundary + stress edge cases
-│   ├── start-dev.ps1                       # One-command local dev setup
-│   └── hardhat.config.ts                   # Both Amoy + Hardhat configured
-│
-└── frontend/                               # React + Vite dApp
-    └── src/
-        ├── pages/
-        │   ├── Dashboard.tsx               # All batches, search + pagination
-        │   ├── RegisterBatch.tsx           # Producer-only form, generates QR
-        │   ├── LogCheckpoint.tsx           # Tabbed: main-flow vs add-on
-        │   ├── AuditBatch.tsx              # Auditor view: flag + resolve
-        │   └── PublicTrace.tsx             # No-wallet verification page
-        ├── hooks/
-        │   ├── useContract.ts              # Signer + read-only Contract factory
-        │   ├── useRole.ts                  # 4-role permission check
-        │   ├── useBatchHistory.ts          # Tuple parsing + IPFS URL resolution
-        │   ├── useCheckpoint.ts            # Pre-validates anomaly client-side
-        │   ├── useAddonCheckpoint.ts       # Add-on process submission
-        │   ├── useFlagBatch.ts             # Auditor flag tx
-        │   ├── useResolveFlag.ts           # Auditor resolve tx
-        │   ├── useBatchRegistry.ts         # Register tx + parses event for batchId
-        │   ├── usePinata.ts                # IPFS upload via Pinata JWT
-        │   └── useDebounce.ts              # Debounced batch-ID lookup
-        ├── components/
-        │   ├── AuditTimeline.tsx           # Vertical timeline with lightbox
-        │   ├── FlaggedBanner.tsx           # Red/green banner + Resolve button
-        │   ├── AnomalyBadge.tsx            # Anomaly detection feedback
-        │   ├── QRCodeDisplay.tsx           # SVG QR + PNG download
-        │   ├── IPFSUpload.tsx              # File picker → Pinata upload
-        │   └── WalletConnect.tsx           # MetaMask connect + network switch
-        ├── context/WalletContext.tsx       # Direct window.ethereum integration
-        └── config/
-            ├── chains.ts                   # Network constants, gas overrides
-            ├── contract.ts                 # ABI + address from env
-            ├── pinata.ts                   # IPFS gateway helper
-            └── FreshTrace.json             # ABI (synced from Hardhat artifact)
-```
-## Prerequisites
-
-- **Node.js** v20 or later
-- **MetaMask** browser extension
-- **Git** for cloning
-
-For Amoy testnet deployment additionally:
-- Polygon Amoy POL from [faucet.polygon.technology](https://faucet.polygon.technology)
-- A Pinata account for IPFS image uploads (optional)
-
-## Quick Start — Local Hardhat Network
-
-### 1. Clone and install
+Clone and install:
 
 ```bash
-git clone https://github.com/<your-username>/freshtrace.git
-cd freshtrace
-
-# Smart contract
-cd freshtrace-project/freshtrace
-npm install
-
-# Frontend
-cd ../../frontend
-npm install
+git clone https://github.com/trannhatduy101-del/FreshTrace.git
+cd FreshTrace
+cd freshtrace-project/freshtrace && npm install
+cd ../../frontend && npm install
 ```
 
-### 2. Configure environment files
+Copy the example env files. Defaults are fine for local development.
 
 ```bash
-# Smart contract: defaults are fine, no editing required for local dev.
-cd freshtrace-project/freshtrace
+cd ../freshtrace-project/freshtrace
 cp .env.example .env
-
-# Frontend: defaults work for local dev (uses the Hardhat deterministic
-# contract address that start-dev.ps1 always deploys to).
 cd ../../frontend
 cp .env.example .env
 ```
 
-On a local Hardhat node, `setup.ts` automatically grants each role to a
-different default Hardhat account so you can demo the separation of duties:
-
-| Role | Hardhat account | Address |
-|------|----------------|---------|
-| DEFAULT_ADMIN | #0 (deployer) | `0xf39F...2266` |
-| PRODUCER | #1 | `0x7099...79C8` |
-| LOGISTICS | #2 | `0x3C44...93BC` |
-| RETAILER | #3 | `0x90F7...b906` |
-| AUDITOR | #4 | `0x15d3...6A65` |
-
-Import the matching private keys into MetaMask (see
-`freshtrace-project/freshtrace/HARDHAT_ACCOUNTS.md` for the full list) and
-switch accounts in MetaMask to demo each role's view.
-
-The deployer wallet (account #0) keeps every role on top of admin, so a
-single MetaMask account can also walk through the entire flow without
-switching. The per-role accounts above are for showing the separation
-of duties; the deployer is the convenient "super-user" for solo demos.
-
-### 3. Start local blockchain + deploy (Windows PowerShell)
-
-Run this once per session:
+Start a fresh Hardhat node, deploy the contract, grant the four roles
+to the five Hardhat default accounts:
 
 ```powershell
 cd freshtrace-project\freshtrace
 .\start-dev.ps1
 ```
 
-The script:
-1. Kills any existing Hardhat node on port 8545
-2. Starts a fresh Hardhat node in a new terminal window
-3. Deploys `FreshTrace` to the deterministic local address `0x5FbDB2315678afecb367f032d93F642f64180aa3`
-4. Grants `PRODUCER_ROLE`, `LOGISTICS_ROLE`, `RETAILER_ROLE`, `AUDITOR_ROLE` to your MetaMask wallet
-5. Sends 10 test ETH to your wallet
-6. Writes the contract address to `frontend/.env`
+`start-dev.ps1` kills any old node on port 8545, opens a new one in a
+separate terminal, runs `setup.ts` and `fund.ts`, and writes the
+contract address into `frontend/.env`. The contract always lands at
+`0x5FbDB2315678afecb367f032d93F642f64180aa3` because Hardhat is
+deterministic at nonce 0.
 
-### 4. Reset MetaMask after each node restart
+Then start the frontend:
 
-After restarting the Hardhat node, the MetaMask transaction nonce cache must be cleared:
-**MetaMask → Settings → Advanced → Clear activity tab data**
-
-### 5. Start the frontend
-
-```powershell
-cd frontend
+```bash
+cd ../../frontend
 npm run dev
 ```
 
-Open <http://localhost:5173>.
+Open http://localhost:5173 and connect MetaMask to the Hardhat Local
+network (RPC `http://127.0.0.1:8545`, chainId `31337`, currency `ETH`).
+After every Hardhat restart you need to clear MetaMask's nonce cache:
+Settings, Advanced, Clear activity tab data.
 
-### 6. Add Hardhat Local network to MetaMask
+The five Hardhat default accounts each end up with one role (see
+`HARDHAT_ACCOUNTS.md` for the keys). Account 0 also keeps all four
+participant roles on top of admin, so you can run a solo demo from a
+single MetaMask account or switch between the five to show the
+separation of duties.
 
-| Field | Value |
-|---|---|
-| Network Name | Hardhat Local |
-| RPC URL | `http://127.0.0.1:8545` |
-| Chain ID | `31337` |
-| Currency Symbol | ETH |
+## Quick start (against the live Amoy contract)
 
----
+If you just want to see the dApp talking to the existing deployment,
+skip the local node. Set `frontend/.env` to:
 
-## Quick Start — Polygon Amoy Testnet
+```
+VITE_CHAIN_ID=80002
+VITE_POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
+VITE_CONTRACT_ADDRESS=0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816
+```
 
-The contract is already live at [`0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816`](https://amoy.polygonscan.com/address/0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816).
+Run the frontend (`npm run dev`), add the Polygon Amoy network to
+MetaMask, and request a bit of POL from
+https://faucet.polygon.technology for gas.
 
-To use this deployment:
+Read access works out of the box. To register batches or log
+checkpoints on this deployment you need a role granted by the admin
+wallet, so ping us with your address or deploy your own copy.
 
-1. Set `frontend/.env`:
-   ```
-   VITE_CHAIN_ID=80002
-   VITE_POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
-   VITE_CONTRACT_ADDRESS=0x3bc08Bd6e49AC920F0d6CB040dbEa884Ee796816
-   ```
-2. Add Polygon Amoy network to MetaMask
-3. Request POL from the faucet (you only need ~0.05 POL for testing)
-4. Note: only the deployer (Group 7's wallet) holds `DEFAULT_ADMIN_ROLE`. To get a participant role on this deployment, contact us. For your own deployment, see below.
+## Deploying your own copy
 
-### Deploying your own copy
+In `freshtrace-project/freshtrace/.env`:
 
-1. Add to `freshtrace-project/freshtrace/.env`:
-   ```
-   PRIVATE_KEY=0xYOUR_PRIVATE_KEY
-   POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
+```
+PRIVATE_KEY=0xYOUR_DEPLOYER_KEY
+POLYGON_AMOY_RPC_URL=https://polygon-amoy-bor-rpc.publicnode.com
 
-   # Single-wallet mode (one wallet receives all four roles)
-   WALLET_ADDRESS=0xYOUR_METAMASK
+# Single-wallet mode: one wallet receives all four participant roles.
+WALLET_ADDRESS=0xYOUR_METAMASK
 
-   # OR per-role mode (one wallet per role) for a realistic demo
-   # WALLET_PRODUCER=0x...
-   # WALLET_LOGISTICS=0x...
-   # WALLET_RETAILER=0x...
-   # WALLET_AUDITOR=0x...
-   ```
-2. Deploy:
-   ```bash
-   cd freshtrace-project/freshtrace
-   npx hardhat run scripts/setup.ts --network amoy
-   ```
+# Or per-role mode: one wallet per role for a realistic demo.
+# WALLET_PRODUCER=0x...
+# WALLET_LOGISTICS=0x...
+# WALLET_RETAILER=0x...
+# WALLET_AUDITOR=0x...
+```
 
-The script auto-updates `frontend/.env` with the new contract address.
-If any per-role var is set, those win; otherwise WALLET_ADDRESS gets
-all four roles; otherwise the deployer does.
+Then `npx hardhat run scripts/setup.ts --network amoy`. The script
+updates `frontend/.env` with the new contract address. Per-role vars
+override the single fallback, and the deployer always keeps all roles
+for solo demos.
 
----
+## On-chain vs off-chain
+
+Worth being precise about this because "blockchain projects" often
+hand-wave it. The contract stores full structured metadata, not just
+a hash:
+
+- `Batch`: productName, origin, harvestDate, quantity, unit, ocop flag,
+  producer address, ipfsHash (for the product photo only).
+- `Checkpoint[]`: actor, location, timestamp, action enum, optional
+  ipfsHash (for evidence photos), optional addonLabel.
+- `AuditFlag[]`: auditor, reason text, timestamps, resolution state.
+
+So `getHistory(batchId)` is a single call that returns everything a
+consumer needs without touching any external system.
+
+Off-chain we only put image bytes on IPFS via Pinata, with the CID
+stored on-chain. The CID is the cryptographic anchor: any byte change
+in the image breaks the hash, so we get tamper-evident photos without
+paying gas for binary blobs.
 
 ## Tests
 
 ```bash
-# Smart contract (Hardhat + chai)
+# Contract: 114 tests, Hardhat + chai
 cd freshtrace-project/freshtrace
 npx hardhat test
 
-# Frontend (Vitest + React Testing Library)
+# Frontend: 57 tests, Vitest + React Testing Library
 cd ../../frontend
 npm test
 ```
 
-**114 contract tests + 57 frontend tests** (171 total) run automatically via GitHub Actions CI on every push.
+Contract suite covers role assignment, the full register and checkpoint
+flow, anomaly detection in both directions, add-on placement at start
+and end of the chain, flag and resolve lifecycles, view functions,
+input validation (empty fields, oversized strings, date sanity, unit
+enum), boundary values (uint256 max quantity, 300-byte name caps),
+UTF-8 round-trips for Vietnamese diacritics and Chinese characters,
+duplicate detection, and the abi.encode collision fix.
 
-Contract tests cover (76 in the main suite, 32 in the edge case suite):
+Frontend suite covers the debounced batch-id lookup, bytes32 format
+validation, the recent-batches localStorage logic with corrupted JSON
+and quota-exceeded edge cases, the i18n context (default locale,
+fallback, persistence), and the friendlyError parser across 11 error
+kinds.
 
-- Deployment and role assignment
-- `registerBatch` happy path plus revert paths
-- `logCheckpoint` ordering, anomaly detection, RBAC
-- `flagBatch` lifecycle, including accumulating multiple flags
-- `logAddon` for all four roles and ordering edge cases
-- `resolveFlag` partial and full resolution flows, RBAC
-- `getHistory`, `getBatchIds`, `getBatchCount` view functions
-- Input validation: empty fields, oversized strings, date sanity, unit enum
-- Boundary values: quantity at uint256 max, 300-byte name limits
-- UTF-8: Vietnamese diacritics, emoji, Chinese characters round-trip
-- Add-on placement: at chain start, at chain end, multiple consecutive
-- Duplicate detection and the abi.encode collision fix
+CI runs both suites plus a production build on every push.
 
-Frontend tests cover (57 total): debounced batch-ID lookup, bytes32 hex
-validation, recent-batches localStorage with edge cases (corrupted JSON,
-quota exceeded, case-insensitive dedup), i18n provider (default locale,
-fallback, persistence), the LanguageToggle and ErrorMessage components,
-and the friendlyError / classifyError helpers across 11 error kinds.
+## Gas and throughput on Amoy
 
-## Gas + Throughput Benchmark
+Real measurements from `scripts/benchmark.ts` against a fresh deploy,
+full details in `BENCHMARK.md`. At 30 gwei tip and a POL price of
+$0.25:
 
-Live measurements on Polygon Amoy with a fresh deploy (see
-`freshtrace-project/freshtrace/BENCHMARK.md` for the full report and
-on-chain transaction links):
+| Function       | Gas      | POL     | USD     |
+|----------------|---------:|--------:|--------:|
+| registerBatch  | 335,746  | 0.0101  | $0.0025 |
+| logCheckpoint  | 171,272  | 0.0051  | $0.0013 |
+| logAddon       | 160,426  | 0.0048  | $0.0012 |
+| flagBatch      | 149,351  | 0.0045  | $0.0011 |
+| resolveFlag    |  94,826  | 0.0028  | $0.0007 |
 
-| Function | Gas | Cost @ 30 gwei | Cost USD @ $0.25 POL |
-|---|---:|---:|---:|
-| registerBatch | 335,746 | 0.0101 POL | $0.0025 |
-| logCheckpoint | 171,272 | 0.0051 POL | $0.0013 |
-| logAddon | 160,426 | 0.0048 POL | $0.0012 |
-| flagBatch | 149,351 | 0.0045 POL | $0.0011 |
-| resolveFlag | 94,826 | 0.0028 POL | $0.0007 |
+A complete batch lifecycle (register, four main-flow checkpoints, one
+add-on, one flag, one resolve) costs about $0.011 per batch. Against
+Amoy's 30M block gas limit and 2s block time the theoretical ceiling
+is around 84 of our transactions per second.
 
-A full batch lifecycle (register + four main-flow checkpoints + one add-on
-+ one flag and resolve) totals 1.43M gas, around **$0.011 per batch**.
+At Vietnam's roughly 10,000 OCOP-certified products and 100 batches
+per producer per month, a national rollout sits in the low thousands
+of dollars per month in gas, which is roughly one mid-tier SaaS bill
+and replaces paper certification entirely.
 
-Theoretical throughput ceiling at average 178k gas per call against a
-30M gas block limit and 2s block time is **about 84 FreshTrace tx per
-second**. For Vietnam's roughly 10,000 OCOP-certified products at 100
-batches per producer per month, the entire national rollout would cost
-on the order of $1,000 per month in gas, while replacing paper
-certificates entirely.
+Reproduce with `npx hardhat run scripts/benchmark.ts --network amoy`.
 
-Reproduce: `npx hardhat run scripts/benchmark.ts --network amoy`
+## Environment variables
 
----
+`freshtrace-project/freshtrace/.env`:
 
-## Environment Variables
+- `PRIVATE_KEY`: deployer key for Amoy. Leave blank if you only run
+  tests or local Hardhat.
+- `POLYGON_AMOY_RPC_URL`: Amoy RPC. Default works.
+- `WALLET_ADDRESS`: single-wallet mode target on Amoy.
+- `WALLET_PRODUCER`, `WALLET_LOGISTICS`, `WALLET_RETAILER`,
+  `WALLET_AUDITOR`: per-role mode targets. Any one of them switches
+  the script into per-role mode.
+- `HARDHAT_PRIVATE_KEY`: public Hardhat test key. Safe to commit,
+  only works on the local node.
+- `CONTRACT_ADDRESS`: used by `grantRoles.ts` for post-deploy ops.
 
-### `freshtrace-project/freshtrace/.env`
+`frontend/.env`:
 
-| Variable | Description |
-|---|---|
-| `PRIVATE_KEY` | Wallet private key for Amoy deployment (leave blank for local-only) |
-| `POLYGON_AMOY_RPC_URL` | Amoy RPC endpoint (default `https://polygon-amoy-bor-rpc.publicnode.com`) |
-| `HARDHAT_RPC_URL` | Local node URL (default `http://127.0.0.1:8545`) |
-| `HARDHAT_PRIVATE_KEY` | Hardhat account #0 private key (public test key, safe to share) |
+- `VITE_CHAIN_ID`: `31337` for Hardhat, `80002` for Amoy.
+- `VITE_POLYGON_AMOY_RPC_URL`: RPC for public reads, no wallet needed.
+- `VITE_CONTRACT_ADDRESS`: deployed contract. `setup.ts` updates this
+  for you on deploy.
+- `VITE_PINATA_JWT`, `VITE_PINATA_GATEWAY`: optional, for image upload.
+- `VITE_WALLETCONNECT_PROJECT_ID`: optional, for mobile QR wallet
+  connection via Reown.
 
-### `frontend/.env`
+## LLM use
 
-| Variable | Description |
-|---|---|
-| `VITE_CHAIN_ID` | `31337` for Hardhat local, `80002` for Polygon Amoy |
-| `VITE_POLYGON_AMOY_RPC_URL` | RPC endpoint for public reads (no wallet needed) |
-| `VITE_CONTRACT_ADDRESS` | Deployed contract address (auto-updated by `setup.ts`) |
-| `VITE_PINATA_JWT` | Pinata API JWT for IPFS uploads (optional) |
-| `VITE_PINATA_GATEWAY` | Pinata gateway URL (default `https://gateway.pinata.cloud`) |
-| `VITE_WALLETCONNECT_PROJECT_ID` | Optional WalletConnect project ID for mobile wallet support |
-
----
-
-## LLM Usage Disclosure
-
-Per RMIT academic integrity policy, this project's development made use of:
-
-- **Anthropic Claude** (Sonnet 4.6 + Opus 4.7 via Claude Code CLI): used for code architecture suggestions, smart contract design review, debugging RPC and ABI-decoding issues, and writing comprehensive code comments and tests.
-
-All design decisions, problem-modelling, and final code review were performed by Group 7 members. The LLM was treated as a collaborative tool, not an authority.
-
----
-
-## License
-
-MIT — see `LICENSE` if present, otherwise this notice serves as the licence grant.
+Per RMIT policy, this writeup discloses where AI tooling helped. We
+used Anthropic Claude (Sonnet and Opus through the Claude Code CLI)
+for things like brainstorming the multi-account demo design, debugging
+the rate-limit and ABI-decoding issues, and tightening up code
+comments and test names. Every design call, every contract function,
+and the final review were on us.
