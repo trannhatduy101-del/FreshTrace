@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWalletAccount } from "../hooks/useWallet";
 import { useContract } from "../hooks/useContract";
-import { ActionType, Batch, QuantityUnit } from "../types";
+import { Batch, QuantityUnit } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import ResilientImage from "../components/ResilientImage";
 
